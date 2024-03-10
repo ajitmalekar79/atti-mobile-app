@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "205362677542",
+    "project_id": "rt-impact-dms-staging",
+    "storage_bucket": "rt-impact-dms-staging.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:205362677542:android:fc64e58a24ec71cf1523e7",
+        "android_client_info": {
+          "package_name": "com.example.attheblocks"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBTqGI1KESKIuSh3GTa4RPvlkEKo6dSzWY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
