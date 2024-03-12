@@ -73,7 +73,7 @@ class CustomDisclosure {
       type: json['type'],
       valueList: List<String>.from(json['value_list'] ?? []),
       timer: json['timer'],
-      required: json['required'],
+      required: json['required'] != null ? json['required'] != null : false,
       isSubmissionExpected: json['is_submission_expected'],
       computedDisclosureFormula: json['computed_disclosure_formula'] != null
           ? List<ComputedDisclosureModel>.from(

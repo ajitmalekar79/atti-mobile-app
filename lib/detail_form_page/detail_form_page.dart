@@ -55,6 +55,7 @@ class _Detail_form_pageState extends State<Detail_form_page> {
   TextEditingController _imagePathController = TextEditingController();
 
   bool isLoading = true;
+  bool submitDataLoading = false;
   final List<String> itemList = [
     'Add new submission',
   ];
@@ -197,6 +198,7 @@ class _Detail_form_pageState extends State<Detail_form_page> {
     if (mounted) {
       setState(() {
         isLoading = false;
+        submitDataLoading = false;
       });
     }
   }
@@ -236,6 +238,7 @@ class _Detail_form_pageState extends State<Detail_form_page> {
       _selectedDates = [];
       _locationIsLoading = false;
       _image = null;
+      _imagePathController.clear();
 
       formDatavalues = [];
       _dateController.text =
@@ -301,15 +304,20 @@ class _Detail_form_pageState extends State<Detail_form_page> {
                       Container(
                         padding: const EdgeInsets.all(10),
                         child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Icon(Icons.category_rounded),
+                            Container(
+                                padding: EdgeInsets.only(top: 10),
+                                child: const Icon(Icons.category_rounded)),
                             const SizedBox(
                               width: 10,
                             ),
-                            Text(
-                              formDetailList[0].name,
-                              style: const TextStyle(
-                                  color: Colors.black, fontSize: 34),
+                            Expanded(
+                              child: Text(
+                                formDetailList[0].name,
+                                style: const TextStyle(
+                                    color: Colors.black, fontSize: 34),
+                              ),
                             ),
                           ],
                         ),
@@ -330,12 +338,15 @@ class _Detail_form_pageState extends State<Detail_form_page> {
                           ],
                         ),
                       ),
+                      const SizedBox(
+                        height: 10,
+                      ),
                       Row(
                         children: [
                           const SizedBox(
                             width: 10,
                           ),
-                          const Icon(Icons.tag_faces),
+                          Image.asset('assets/images/tag_img.png'),
                           const SizedBox(
                             width: 10,
                           ),
@@ -349,13 +360,14 @@ class _Detail_form_pageState extends State<Detail_form_page> {
                                 return Container(
                                   padding: const EdgeInsets.all(
                                       2), // Adjust width as needed
-                                  margin: EdgeInsets.symmetric(horizontal: 4),
+                                  margin:
+                                      const EdgeInsets.symmetric(horizontal: 6),
                                   decoration: BoxDecoration(
                                       color: index % 2 == 0
                                           ? Colors.grey
                                           : const Color.fromARGB(
-                                              255, 245, 229, 204),
-                                      borderRadius: BorderRadius.circular(5),
+                                              255, 240, 232, 218),
+                                      borderRadius: BorderRadius.circular(2),
                                       boxShadow: const [
                                         BoxShadow(
                                           blurRadius: 1,
@@ -425,7 +437,7 @@ class _Detail_form_pageState extends State<Detail_form_page> {
                                         labelText: 'Time',
                                         suffixIcon: IconButton(
                                           icon: const Icon(
-                                            Icons.timer_sharp,
+                                            Icons.access_time,
                                           ),
                                           onPressed: () => _selectTime(context),
                                         ),
@@ -485,7 +497,7 @@ class _Detail_form_pageState extends State<Detail_form_page> {
                                                           'unlimited'
                                                       ? const TextSpan(
                                                           text:
-                                                              ' [Unlimited Submissions]',
+                                                              ' [Unlimited submissions]',
                                                           style: TextStyle(
                                                               fontSize: 12,
                                                               color:
@@ -535,7 +547,7 @@ class _Detail_form_pageState extends State<Detail_form_page> {
                                             //   ),
                                             // );
                                             setState(() {
-                                              isLoading = true;
+                                              submitDataLoading = true;
                                             });
 
                                             await _postFormData.submitFormData(
@@ -550,11 +562,20 @@ class _Detail_form_pageState extends State<Detail_form_page> {
                                               alignment: Alignment.center,
                                               width: 80,
                                               padding: EdgeInsets.all(8),
-                                              child: const Text(
-                                                'Submit',
-                                                style: TextStyle(
-                                                    color: Colors.white),
-                                              ))),
+                                              child: submitDataLoading
+                                                  ? Container(
+                                                      height: 20,
+                                                      width: 20,
+                                                      child:
+                                                          CircularProgressIndicator(
+                                                              color:
+                                                                  Colors.white),
+                                                    )
+                                                  : const Text(
+                                                      'Submit',
+                                                      style: TextStyle(
+                                                          color: Colors.white),
+                                                    ))),
                                     ),
                                   ],
                                 ),
@@ -615,16 +636,16 @@ class _Detail_form_pageState extends State<Detail_form_page> {
                         style: TextStyle(color: Colors.white)),
                   ),
                 ),
-                InkWell(
-                  onTap: () {},
-                  child: Container(
-                    padding: const EdgeInsets.all(7),
-                    width: screenWidth,
-                    alignment: Alignment.center,
-                    child: const Text('Settings',
-                        style: TextStyle(color: Colors.white)),
-                  ),
-                ),
+                // InkWell(
+                //   onTap: () {},
+                //   child: Container(
+                //     padding: const EdgeInsets.all(7),
+                //     width: screenWidth,
+                //     alignment: Alignment.center,
+                //     child: const Text('Settings',
+                //         style: TextStyle(color: Colors.white)),
+                //   ),
+                // ),
               ],
             ),
           ),
@@ -658,7 +679,7 @@ class _Detail_form_pageState extends State<Detail_form_page> {
         );
       case 'number':
         return TextFormField(
-          decoration: const InputDecoration(hintText: 'Enter a Number'),
+          decoration: const InputDecoration(hintText: 'Enter a number'),
           keyboardType: TextInputType.number,
           onChanged: (value) {
             int index = formDatavalues
@@ -682,7 +703,6 @@ class _Detail_form_pageState extends State<Detail_form_page> {
       case 'tags':
         final List<dynamic> valueList =
             List<dynamic>.from(disclosure[index].valueList);
-        valueList.add('sample2');
         List<String> selectedTags = selectedValuesFromTags[id] ?? [];
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -798,108 +818,204 @@ class _Detail_form_pageState extends State<Detail_form_page> {
       case 'radio':
         final List<dynamic> valueList =
             List<dynamic>.from(disclosure[index].valueList);
-        return Column(
-          children: valueList.map((value) {
-            return RadioListTile<dynamic>(
-              title: Text(value.toString()),
-              value: value,
-              groupValue: selectedValuesFromRadioBtn[id],
-              onChanged: (dynamic newValue) {
-                setState(() {
-                  selectedValuesFromRadioBtn[id] = newValue;
-                  int index = formDatavalues.indexWhere(
-                      (formData) => formData.custom_disclosure_id == id);
-                  if (index != -1) {
-                    // If FormData object with matching disclosureName is found, update its value
-                    formDatavalues[index] = formDatavalues[index] = FormData(
-                        custom_disclosure_id: id,
-                        type: type,
-                        value: selectedValuesFromRadioBtn[id]);
-                  } else {
-                    // If FormData object with matching disclosureName is not found, add a new FormData object
-                    formDatavalues.add(FormData(
-                        custom_disclosure_id: id,
-                        type: type,
-                        value: selectedValuesFromRadioBtn[id]));
-                  }
-                });
-              },
-            );
-          }).toList(),
+        return Container(
+          child: GridView.builder(
+            itemCount: valueList.length,
+            shrinkWrap: true,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2, childAspectRatio: 4, crossAxisSpacing: 1),
+            itemBuilder: (BuildContext context, int index) {
+              return ListTile(
+                title: Text(
+                  valueList[index],
+                  style: TextStyle(fontSize: 12),
+                ),
+                leading: Radio<String>(
+                  activeColor: Color.fromARGB(255, 167, 160, 64),
+                  value: valueList[index],
+                  groupValue: selectedValuesFromRadioBtn[id],
+                  onChanged: (dynamic newValue) {
+                    setState(() {
+                      selectedValuesFromRadioBtn[id] = newValue;
+                      int index = formDatavalues.indexWhere(
+                          (formData) => formData.custom_disclosure_id == id);
+                      if (index != -1) {
+                        // If FormData object with matching disclosureName is found, update its value
+                        formDatavalues[index] = formDatavalues[index] =
+                            FormData(
+                                custom_disclosure_id: id,
+                                type: type,
+                                value: selectedValuesFromRadioBtn[id]);
+                      } else {
+                        // If FormData object with matching disclosureName is not found, add a new FormData object
+                        formDatavalues.add(FormData(
+                            custom_disclosure_id: id,
+                            type: type,
+                            value: selectedValuesFromRadioBtn[id]));
+                      }
+                    });
+                  },
+                ),
+              );
+            },
+          ),
         );
+      // return Column(
+      //   children: valueList.map((value) {
+      //     return RadioListTile<dynamic>(
+      //       title: Text(value.toString()),
+      //       value: value,
+      //       groupValue: selectedValuesFromRadioBtn[id],
+      //       activeColor: Color.fromARGB(255, 202, 170, 75),
+      //       onChanged: (dynamic newValue) {
+      //         setState(() {
+      //           selectedValuesFromRadioBtn[id] = newValue;
+      //           int index = formDatavalues.indexWhere(
+      //               (formData) => formData.custom_disclosure_id == id);
+      //           if (index != -1) {
+      //             // If FormData object with matching disclosureName is found, update its value
+      //             formDatavalues[index] = formDatavalues[index] = FormData(
+      //                 custom_disclosure_id: id,
+      //                 type: type,
+      //                 value: selectedValuesFromRadioBtn[id]);
+      //           } else {
+      //             // If FormData object with matching disclosureName is not found, add a new FormData object
+      //             formDatavalues.add(FormData(
+      //                 custom_disclosure_id: id,
+      //                 type: type,
+      //                 value: selectedValuesFromRadioBtn[id]));
+      //           }
+      //         });
+      //       },
+      //     );
+      //   }).toList(),
+      // );
       case 'checkbox':
         final List<dynamic> valueList =
             List<dynamic>.from(disclosure[index].valueList);
-        return Column(
-          children: valueList.map((value) {
-            return CheckboxListTile(
-              title: Text(value.toString()),
-              value: (selectedValuesFromCheckbox[id] ?? []).contains(value),
-              onChanged: (bool? newValue) {
-                setState(() {
-                  // selectedValuesFromCheckbox[id] ??= [];
-                  if (newValue!) {
-                    selectedValuesFromCheckbox[id] != null
-                        ? selectedValuesFromCheckbox[id]?.add(value.toString())
-                        : selectedValuesFromCheckbox[id] = [value.toString()];
-                  } else {
-                    selectedValuesFromCheckbox[id]?.remove(value.toString());
-                  }
-                  int index = formDatavalues.indexWhere(
-                      (formData) => formData.custom_disclosure_id == id);
-                  if (index != -1) {
-                    // If FormData object with matching disclosureName is found, update its value
-                    formDatavalues[index] = formDatavalues[index] = FormData(
-                        custom_disclosure_id: id,
-                        type: type,
-                        value: selectedValuesFromCheckbox[id]);
-                  } else {
-                    // If FormData object with matching disclosureName is not found, add a new FormData object
-                    formDatavalues.add(FormData(
-                        custom_disclosure_id: id,
-                        type: type,
-                        value: selectedValuesFromCheckbox[id]));
-                  }
-                });
-              },
+        return GridView.builder(
+          shrinkWrap: true,
+          physics: NeverScrollableScrollPhysics(),
+          itemCount: valueList.length,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2, childAspectRatio: 3, crossAxisSpacing: 0.2),
+          itemBuilder: (BuildContext context, int index) {
+            String selectvalue = valueList[index];
+            return Container(
+              child: CheckboxListTile(
+                title: Text(
+                  valueList[index],
+                  style: TextStyle(fontSize: 14),
+                ),
+                controlAffinity: ListTileControlAffinity.leading,
+                activeColor: const Color.fromARGB(255, 167, 160, 64),
+                value: (selectedValuesFromCheckbox[id] ?? [])
+                    .contains(selectvalue),
+                onChanged: (bool? newValue) {
+                  setState(() {
+                    // selectedValuesFromCheckbox[id] ??= [];
+                    if (newValue!) {
+                      selectedValuesFromCheckbox[id] != null
+                          ? selectedValuesFromCheckbox[id]?.add(selectvalue)
+                          : selectedValuesFromCheckbox[id] = [selectvalue];
+                    } else {
+                      selectedValuesFromCheckbox[id]?.remove(selectvalue);
+                    }
+                    int index = formDatavalues.indexWhere(
+                        (formData) => formData.custom_disclosure_id == id);
+                    if (index != -1) {
+                      // If FormData object with matching disclosureName is found, update its value
+                      formDatavalues[index] = formDatavalues[index] = FormData(
+                          custom_disclosure_id: id,
+                          type: type,
+                          value: selectedValuesFromCheckbox[id]);
+                    } else {
+                      // If FormData object with matching disclosureName is not found, add a new FormData object
+                      formDatavalues.add(FormData(
+                          custom_disclosure_id: id,
+                          type: type,
+                          value: selectedValuesFromCheckbox[id]));
+                    }
+                  });
+                },
+              ),
             );
-          }).toList(),
+          },
         );
+      // return Column(
+      //   children: valueList.map((value) {
+      //     return CheckboxListTile(
+      //       title: Text(value.toString()),
+      //       activeColor: Color.fromARGB(255, 202, 170, 75),
+      //       value: (selectedValuesFromCheckbox[id] ?? []).contains(value),
+      //       onChanged: (bool? newValue) {
+      //         setState(() {
+      //           // selectedValuesFromCheckbox[id] ??= [];
+      //           if (newValue!) {
+      //             selectedValuesFromCheckbox[id] != null
+      //                 ? selectedValuesFromCheckbox[id]?.add(value.toString())
+      //                 : selectedValuesFromCheckbox[id] = [value.toString()];
+      //           } else {
+      //             selectedValuesFromCheckbox[id]?.remove(value.toString());
+      //           }
+      //           int index = formDatavalues.indexWhere(
+      //               (formData) => formData.custom_disclosure_id == id);
+      //           if (index != -1) {
+      //             // If FormData object with matching disclosureName is found, update its value
+      //             formDatavalues[index] = formDatavalues[index] = FormData(
+      //                 custom_disclosure_id: id,
+      //                 type: type,
+      //                 value: selectedValuesFromCheckbox[id]);
+      //           } else {
+      //             // If FormData object with matching disclosureName is not found, add a new FormData object
+      //             formDatavalues.add(FormData(
+      //                 custom_disclosure_id: id,
+      //                 type: type,
+      //                 value: selectedValuesFromCheckbox[id]));
+      //           }
+      //         });
+      //       },
+      //     );
+      //   }).toList(),
+      // );
       case 'dropdown':
         final List<dynamic> valueList =
             List<dynamic>.from(disclosure[index].valueList);
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            DropdownButton<dynamic>(
-              value: selectedValuesFromDropDown[id],
-              hint: Text('select options'),
-              items: valueList.map((value) {
-                return DropdownMenuItem<dynamic>(
-                  value: value,
-                  child: Text(value),
-                );
-              }).toList(),
-              onChanged: (dynamic selectedValue) {
-                setState(() {
-                  selectedValuesFromDropDown[id] = selectedValue;
-                  int index = formDatavalues.indexWhere(
-                      (formData) => formData.custom_disclosure_id == id);
-                  if (index != -1) {
-                    // If FormData object with matching disclosureName is found, update its value
-                    formDatavalues[index] = formDatavalues[index] = FormData(
-                        custom_disclosure_id: id,
-                        type: type,
-                        value: selectedValuesFromDropDown[id]);
-                  } else {
-                    // If FormData object with matching disclosureName is not found, add a new FormData object
-                    formDatavalues.add(FormData(
-                        custom_disclosure_id: id,
-                        type: type,
-                        value: selectedValuesFromDropDown[id]));
-                  }
-                });
-              },
+            Container(
+              width: MediaQuery.of(context).size.width,
+              child: DropdownButton<dynamic>(
+                value: selectedValuesFromDropDown[id],
+                hint: Text('select options'),
+                items: valueList.map((value) {
+                  return DropdownMenuItem<dynamic>(
+                    value: value,
+                    child: Text(value),
+                  );
+                }).toList(),
+                onChanged: (dynamic selectedValue) {
+                  setState(() {
+                    selectedValuesFromDropDown[id] = selectedValue;
+                    int index = formDatavalues.indexWhere(
+                        (formData) => formData.custom_disclosure_id == id);
+                    if (index != -1) {
+                      // If FormData object with matching disclosureName is found, update its value
+                      formDatavalues[index] = formDatavalues[index] = FormData(
+                          custom_disclosure_id: id,
+                          type: type,
+                          value: selectedValuesFromDropDown[id]);
+                    } else {
+                      // If FormData object with matching disclosureName is not found, add a new FormData object
+                      formDatavalues.add(FormData(
+                          custom_disclosure_id: id,
+                          type: type,
+                          value: selectedValuesFromDropDown[id]));
+                    }
+                  });
+                },
+              ),
             ),
           ],
         );
@@ -955,31 +1071,33 @@ class _Detail_form_pageState extends State<Detail_form_page> {
           ),
         );
       case 'location':
-        return Padding(
-          padding: const EdgeInsets.all(10.0),
-          child: TextField(
-            controller: _locationController,
-            readOnly: true,
-            decoration: InputDecoration(
-              hintText: 'Current Location',
-              suffixIcon: IconButton(
-                icon: _locationIsLoading
-                    ? Container(
-                        height: 10,
-                        width: 10,
-                        child: const CircularProgressIndicator(
-                          strokeAlign: 0.2,
-                          strokeWidth: 2,
-                        ),
-                      )
-                    : const Icon(Icons.location_on),
-                onPressed: () {
-                  _getCurrentLocation();
-                  setState(() {
-                    _locationIsLoading = true;
-                  });
-                },
-              ),
+        return TextField(
+          controller: _locationController,
+          readOnly: true,
+          decoration: InputDecoration(
+            hintText: 'Current Location',
+            suffixIcon: IconButton(
+              icon: _locationIsLoading
+                  ? Container(
+                      height: 10,
+                      width: 10,
+                      child: const CircularProgressIndicator(
+                        strokeAlign: 0.2,
+                        strokeWidth: 2,
+                      ),
+                    )
+                  : const CircleAvatar(
+                      backgroundColor: Colors.black,
+                      child: Icon(
+                        Icons.location_on,
+                        color: Colors.white,
+                      )),
+              onPressed: () {
+                _getCurrentLocation();
+                setState(() {
+                  _locationIsLoading = true;
+                });
+              },
             ),
           ),
         );
@@ -989,42 +1107,46 @@ class _Detail_form_pageState extends State<Detail_form_page> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            DropdownButton<dynamic>(
-              value: selectedValuesFromDropDownText[id] != null
-                  ? selectedValuesFromDropDownText[id]['value_dropdown']
-                  : null,
-              hint: Text('select options'),
-              items: valueList.map((value) {
-                return DropdownMenuItem<dynamic>(
-                  value: value,
-                  child: Text(value),
-                );
-              }).toList(),
-              onChanged: (dynamic selectedValue) {
-                setState(() {
-                  selectedValuesFromDropDownText[id] = {
-                    'value_string': selectedValuesFromDropDownText[id] != null
-                        ? selectedValuesFromDropDownText[id]['value_string']
-                        : '',
-                    'value_dropdown': selectedValue,
-                  };
-                  int index = formDatavalues.indexWhere(
-                      (formData) => formData.custom_disclosure_id == id);
-                  if (index != -1) {
-                    // If FormData object with matching disclosureName is found, update its value
-                    formDatavalues[index] = formDatavalues[index] = FormData(
-                        custom_disclosure_id: id,
-                        type: type,
-                        value: selectedValuesFromDropDownText[id]);
-                  } else {
-                    // If FormData object with matching disclosureName is not found, add a new FormData object
-                    formDatavalues.add(FormData(
-                        custom_disclosure_id: id,
-                        type: type,
-                        value: selectedValuesFromDropDownText[id]));
-                  }
-                });
-              },
+            Container(
+              width: MediaQuery.of(context).size.width,
+              child: DropdownButton<dynamic>(
+                value: selectedValuesFromDropDownText[id] != null
+                    ? selectedValuesFromDropDownText[id]['value_dropdown']
+                    : null,
+                hint: const Text('select options'),
+                items: valueList.map((value) {
+                  return DropdownMenuItem<dynamic>(
+                    value: value,
+                    child: Text(value),
+                  );
+                }).toList(),
+                onChanged: (dynamic selectedValue) {
+                  setState(() {
+                    selectedValuesFromDropDownText[id] = {
+                      'value_string': selectedValuesFromDropDownText[id] != null
+                          ? selectedValuesFromDropDownText[id]['value_string']
+                          : '',
+                      'value_dropdown': selectedValue,
+                    };
+
+                    int index = formDatavalues.indexWhere(
+                        (formData) => formData.custom_disclosure_id == id);
+                    if (index != -1) {
+                      // If FormData object with matching disclosureName is found, update its value
+                      formDatavalues[index] = formDatavalues[index] = FormData(
+                          custom_disclosure_id: id,
+                          type: type,
+                          value: selectedValuesFromDropDownText[id]);
+                    } else {
+                      // If FormData object with matching disclosureName is not found, add a new FormData object
+                      formDatavalues.add(FormData(
+                          custom_disclosure_id: id,
+                          type: type,
+                          value: selectedValuesFromDropDownText[id]));
+                    }
+                  });
+                },
+              ),
             ),
             TextFormField(
               decoration: const InputDecoration(hintText: 'Enter a text input'),
@@ -1103,12 +1225,38 @@ class _Detail_form_pageState extends State<Detail_form_page> {
             ),
             SizedBox(height: 20),
             Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20),
+              padding: const EdgeInsets.symmetric(horizontal: 10),
               child: TextField(
                 controller: _imagePathController,
                 readOnly: true,
                 decoration: InputDecoration(
                   hintText: 'Image Path',
+                  prefix: IconButton(
+                      icon: Icon(Icons.attach_file),
+                      onPressed: () {
+                        setState(() async {
+                          await getImage();
+                          if (_image != null) {
+                            selectedValuesFromImage[id] = [_image?.path];
+                            int index = formDatavalues.indexWhere((formData) =>
+                                formData.custom_disclosure_id == id);
+                            if (index != -1) {
+                              // If FormData object with matching disclosureName is found, update its value
+                              formDatavalues[index] = formDatavalues[index] =
+                                  FormData(
+                                      custom_disclosure_id: id,
+                                      type: type,
+                                      value: selectedValuesFromImage[id]);
+                            } else {
+                              // If FormData object with matching disclosureName is not found, add a new FormData object
+                              formDatavalues.add(FormData(
+                                  custom_disclosure_id: id,
+                                  type: type,
+                                  value: selectedValuesFromImage[id]));
+                            }
+                          }
+                        });
+                      }),
                   suffixIcon: IconButton(
                     icon: Icon(Icons.clear),
                     onPressed: () {
@@ -1127,18 +1275,15 @@ class _Detail_form_pageState extends State<Detail_form_page> {
         final List valueList = List.from(disclosure[index].valueList);
 
         return AutoCompleteTextField(
-          decoration: const InputDecoration(
-              hintText: "Enter a new value or select an existing value"),
+          decoration: const InputDecoration(hintText: "Enter a new value"),
           textChanged: (item) {
             setState(() {
-              selectedValuesFromUniqueId[id] = {
-                'value': item,
-              };
+              selectedValuesFromUniqueId[id] = {'value': item};
               int index = formDatavalues.indexWhere(
                   (formData) => formData.custom_disclosure_id == id);
               if (index != -1) {
                 // If FormData object with matching disclosureName is found, update its value
-                formDatavalues[index] = formDatavalues[index] = FormData(
+                formDatavalues[index] = FormData(
                     custom_disclosure_id: id,
                     type: type,
                     value: selectedValuesFromUniqueId[id]);
@@ -1153,14 +1298,12 @@ class _Detail_form_pageState extends State<Detail_form_page> {
           },
           itemSubmitted: (item) {
             setState(() {
-              selectedValuesFromUniqueId[id] = {
-                'value': item,
-              };
+              selectedValuesFromUniqueId[id] = {'value': item};
               int index = formDatavalues.indexWhere(
                   (formData) => formData.custom_disclosure_id == id);
               if (index != -1) {
                 // If FormData object with matching disclosureName is found, update its value
-                formDatavalues[index] = formDatavalues[index] = FormData(
+                formDatavalues[index] = FormData(
                     custom_disclosure_id: id,
                     type: type,
                     value: selectedValuesFromUniqueId[id]);
@@ -1186,6 +1329,68 @@ class _Detail_form_pageState extends State<Detail_form_page> {
               .toLowerCase()
               .startsWith(input.toLowerCase()),
         );
+      // final List valueList = List.from(disclosure[index].valueList);
+
+      // return AutoCompleteTextField(
+      //   decoration: const InputDecoration(
+      //       hintText: "Enter a new value or select an existing value"),
+      //   textChanged: (item) {
+      //     setState(() {
+      //       selectedValuesFromUniqueId[id] = {
+      //         'value': item,
+      //       };
+      //       int index = formDatavalues.indexWhere(
+      //           (formData) => formData.custom_disclosure_id == id);
+      //       if (index != -1) {
+      //         // If FormData object with matching disclosureName is found, update its value
+      //         formDatavalues[index] = formDatavalues[index] = FormData(
+      //             custom_disclosure_id: id,
+      //             type: type,
+      //             value: selectedValuesFromUniqueId[id]);
+      //       } else {
+      //         // If FormData object with matching disclosureName is not found, add a new FormData object
+      //         formDatavalues.add(FormData(
+      //             custom_disclosure_id: id,
+      //             type: type,
+      //             value: selectedValuesFromUniqueId[id]));
+      //       }
+      //     });
+      //   },
+      //   itemSubmitted: (item) {
+      //     setState(() {
+      //       selectedValuesFromUniqueId[id] = {
+      //         'value': item,
+      //       };
+      //       int index = formDatavalues.indexWhere(
+      //           (formData) => formData.custom_disclosure_id == id);
+      //       if (index != -1) {
+      //         // If FormData object with matching disclosureName is found, update its value
+      //         formDatavalues[index] = formDatavalues[index] = FormData(
+      //             custom_disclosure_id: id,
+      //             type: type,
+      //             value: selectedValuesFromUniqueId[id]);
+      //       } else {
+      //         // If FormData object with matching disclosureName is not found, add a new FormData object
+      //         formDatavalues.add(FormData(
+      //             custom_disclosure_id: id,
+      //             type: type,
+      //             value: selectedValuesFromUniqueId[id]));
+      //       }
+      //     });
+      //   },
+      //   key: autokey,
+      //   suggestions: valueList,
+      //   itemBuilder: (context, suggestion) => Padding(
+      //       padding: const EdgeInsets.all(8.0),
+      //       child: ListTile(
+      //           title: Text(suggestion), trailing: Text(suggestion))),
+      //   itemSorter: (a, b) =>
+      //       a.toString().toLowerCase().compareTo(b.toString().toLowerCase()),
+      //   itemFilter: (suggestion, input) => suggestion
+      //       .toString()
+      //       .toLowerCase()
+      //       .startsWith(input.toLowerCase()),
+      // );
       case 'computed':
         List<ComputedDisclosureModel> formula =
             disclosure[index].computedDisclosureFormula ?? [];
@@ -1420,6 +1625,8 @@ class _ExpandableListItemState extends State<ExpandableListItem> {
           Container(
             alignment: Alignment.center,
             height: 70,
+            color:
+                _isExpanded ? Color.fromARGB(255, 236, 235, 235) : Colors.white,
             child: ListTile(
               title: Text(
                 widget.title,
@@ -1436,7 +1643,7 @@ class _ExpandableListItemState extends State<ExpandableListItem> {
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(20),
-                    color: const Color.fromARGB(255, 240, 230, 202)),
+                    color: Color.fromARGB(255, 216, 209, 188)),
                 child: Icon(
                   _isExpanded
                       ? Icons.keyboard_arrow_up
@@ -1493,15 +1700,43 @@ class _ExpandableListSubmissionState extends State<ExpandableListSubmission> {
     switch (type) {
       case 'string':
         return TextFormField(
-          decoration: const InputDecoration(hintText: 'Enter a text input'),
+          autofocus: false,
+          decoration: const InputDecoration(
+            hintText: 'Enter a text input',
+            labelStyle:
+                TextStyle(color: Colors.grey), // Grey text color for label
+            hintStyle:
+                TextStyle(color: Colors.grey), // Grey text color for hint
+            // Remove bottom line color on selection
+            focusedBorder: UnderlineInputBorder(borderSide: BorderSide.none),
+            // Style for disabled text color (grey)
+            disabledBorder: UnderlineInputBorder(
+              borderSide: BorderSide(color: Colors.grey),
+            ),
+          ),
           initialValue: disclosure[index].value,
           readOnly: true,
+          enabled: false,
         );
       case 'number':
         return TextFormField(
-          decoration: const InputDecoration(hintText: 'Enter a Number'),
+          decoration: const InputDecoration(
+              hintText: 'Enter a number',
+              labelStyle:
+                  TextStyle(color: Colors.grey), // Grey text color for label
+              hintStyle:
+                  TextStyle(color: Colors.grey), // Grey text color for hint
+              // Remove bottom line color on selection
+              focusedBorder: UnderlineInputBorder(borderSide: BorderSide.none),
+              // Style for disabled text color (grey)
+              disabledBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: Colors.grey),
+              ),
+              focusColor: Colors.grey),
           keyboardType: TextInputType.number,
           initialValue: "${disclosure[index].value ?? ''}",
+          autofocus: false,
+          enabled: false,
           readOnly: true,
         );
 
@@ -1529,11 +1764,13 @@ class _ExpandableListSubmissionState extends State<ExpandableListSubmission> {
             return RadioListTile<dynamic>(
               title: Text(value.toString()),
               value: value,
+              activeColor: Colors.grey,
               groupValue: disclosure[index].value,
               onChanged: (dynamic newValue) {},
             );
           }).toList(),
         );
+
       case 'checkbox':
         final List<dynamic> valueList =
             List<dynamic>.from(disclosure[index].valueList ?? []);
@@ -1541,6 +1778,7 @@ class _ExpandableListSubmissionState extends State<ExpandableListSubmission> {
           children: valueList.map((value) {
             return CheckboxListTile(
               title: Text(value.toString()),
+              activeColor: Colors.grey,
               value: (disclosure[index].value ?? []).contains(value),
               onChanged: (bool? newValue) {},
             );
@@ -1554,11 +1792,17 @@ class _ExpandableListSubmissionState extends State<ExpandableListSubmission> {
           children: [
             DropdownButton<dynamic>(
               value: disclosure[index].value,
+              dropdownColor:
+                  Colors.grey[200], // Set dropdown color to light grey
+              iconEnabledColor: Colors.grey,
               hint: Text('select options'),
               items: valueList.map((value) {
                 return DropdownMenuItem<dynamic>(
                   value: value,
-                  child: Text(value),
+                  child: Text(
+                    value,
+                    style: TextStyle(color: Colors.grey),
+                  ),
                 );
               }).toList(),
               onChanged: (dynamic selectedValue) {},
@@ -1569,21 +1813,25 @@ class _ExpandableListSubmissionState extends State<ExpandableListSubmission> {
         return TextFormField(
           initialValue: "${disclosure[index].value ?? ''}",
           readOnly: true,
+          enabled: false,
           decoration: const InputDecoration(
             labelText: 'Select Dates',
             suffixIcon: Icon(Icons.calendar_today),
           ),
         );
       case 'location':
-        return Padding(
-          padding: const EdgeInsets.all(10.0),
-          child: TextFormField(
-            initialValue: "${disclosure[index].value ?? ''}",
-            readOnly: true,
-            decoration: const InputDecoration(
-              hintText: 'Current Location',
-              suffixIcon: Icon(Icons.location_on),
-            ),
+        return TextFormField(
+          initialValue: "${disclosure[index].value ?? ''}",
+          readOnly: true,
+          enabled: false,
+          decoration: const InputDecoration(
+            hintText: 'Current Location',
+            suffixIcon: CircleAvatar(
+                backgroundColor: Colors.black,
+                child: const Icon(
+                  Icons.location_on,
+                  color: Colors.white,
+                )),
           ),
         );
       case 'dropdown+text':
@@ -1597,18 +1845,26 @@ class _ExpandableListSubmissionState extends State<ExpandableListSubmission> {
                   ? disclosure[index].value['value_dropdown']
                   : null,
               hint: const Text('select options'),
+              dropdownColor:
+                  Colors.grey[200], // Set dropdown color to light grey
+              iconEnabledColor: Colors.grey,
               items: valueList.map((value) {
                 return DropdownMenuItem<dynamic>(
                   value: value,
-                  child: Text(value),
+                  child: Text(
+                    value,
+                    style: TextStyle(color: Colors.grey),
+                  ),
                 );
               }).toList(),
               onChanged: (dynamic selectedValue) {},
+              enableFeedback: false,
             ),
             TextFormField(
               initialValue:
                   "${disclosure[index].value != null ? disclosure[index].value['value_string'] ?? '' : ''}",
               readOnly: true,
+              enabled: false,
               decoration: const InputDecoration(hintText: 'Enter a text input'),
             )
           ],
@@ -1671,6 +1927,7 @@ class _ExpandableListSubmissionState extends State<ExpandableListSubmission> {
         return TextFormField(
           initialValue: uniqueId,
           readOnly: true,
+          enabled: false,
           decoration: const InputDecoration(
               hintText: "Enter a new value or select an existing value"),
         );
@@ -1678,6 +1935,7 @@ class _ExpandableListSubmissionState extends State<ExpandableListSubmission> {
         return TextFormField(
           initialValue: "${disclosure[index].value ?? ''}",
           readOnly: true,
+          enabled: false,
         );
       case 'gallery':
         return Column(
@@ -1709,7 +1967,10 @@ class _ExpandableListSubmissionState extends State<ExpandableListSubmission> {
           borderRadius: BorderRadius.circular(5),
           color: Colors.white,
           boxShadow: const [
-            BoxShadow(blurRadius: 2, color: Colors.grey, spreadRadius: 1)
+            BoxShadow(
+                blurRadius: 2,
+                color: Color.fromARGB(255, 168, 160, 160),
+                spreadRadius: 1)
           ]),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1717,6 +1978,8 @@ class _ExpandableListSubmissionState extends State<ExpandableListSubmission> {
           Container(
             alignment: Alignment.center,
             height: 70,
+            color:
+                _isExpanded ? Color.fromARGB(255, 236, 235, 235) : Colors.white,
             child: ListTile(
               title: Text(
                 widget.title,
@@ -1734,7 +1997,7 @@ class _ExpandableListSubmissionState extends State<ExpandableListSubmission> {
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(20),
-                    color: const Color.fromARGB(255, 240, 230, 202)),
+                    color: const Color.fromARGB(255, 216, 209, 188)),
                 child: Icon(
                   _isExpanded
                       ? Icons.keyboard_arrow_up
@@ -1746,7 +2009,14 @@ class _ExpandableListSubmissionState extends State<ExpandableListSubmission> {
           _isExpanded == true
               ? Container(
                   child: isLoading
-                      ? const Center(child: CircularProgressIndicator())
+                      ? Center(
+                          child: Container(
+                              height: 50,
+                              width: 50,
+                              padding: EdgeInsets.all(10),
+                              child: CircularProgressIndicator(
+                                color: Colors.black,
+                              )))
                       : ListView.builder(
                           padding: const EdgeInsets.symmetric(horizontal: 20),
                           itemCount: formDetailList[0]
@@ -1787,6 +2057,28 @@ class _ExpandableListSubmissionState extends State<ExpandableListSubmission> {
                                         style: const TextStyle(
                                             fontSize: 14, color: Colors.black),
                                       ),
+                                      customDisclosure[index].timer ==
+                                              'unlimited'
+                                          ? const TextSpan(
+                                              text: ' [Unlimited Submissions]',
+                                              style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: Colors.black),
+                                            )
+                                          : customDisclosure[index].timer ==
+                                                  'computed'
+                                              ? const TextSpan(
+                                                  text: ' [computed]',
+                                                  style: TextStyle(
+                                                      fontSize: 12,
+                                                      color: Colors.black),
+                                                )
+                                              : const TextSpan(
+                                                  text: '[]',
+                                                  style: TextStyle(
+                                                      fontSize: 12,
+                                                      color: Colors.black),
+                                                )
                                     ],
                                   ),
                                 ),
