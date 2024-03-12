@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:attheblocks/splash_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -8,12 +10,16 @@ import 'routes.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-      options: const FirebaseOptions(
-          apiKey: 'AIzaSyBTqGI1KESKIuSh3GTa4RPvlkEKo6dSzWY',
-          appId: '1:205362677542:android:fc64e58a24ec71cf1523e7',
-          messagingSenderId: '205362677542',
-          projectId: 'rt-impact-dms-staging'));
+  if (Platform.isAndroid) {
+    await Firebase.initializeApp(
+        options: const FirebaseOptions(
+            apiKey: 'AIzaSyBTqGI1KESKIuSh3GTa4RPvlkEKo6dSzWY',
+            appId: '1:205362677542:android:fc64e58a24ec71cf1523e7',
+            messagingSenderId: '205362677542',
+            projectId: 'rt-impact-dms-staging'));
+  } else {
+    Firebase.initializeApp();
+  }
 
   runApp(const MyApp());
 }

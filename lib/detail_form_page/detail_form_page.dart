@@ -44,6 +44,7 @@ class _Detail_form_pageState extends State<Detail_form_page> {
   Map<String, dynamic> selectedValuesFromTags = {};
   Map<String, dynamic> selectedValuesFromDropDown = {};
   Map<String, dynamic> selectedValuesFromDateTime = {};
+  Map<String, dynamic> selectedValuesFromLocation = {};
   Map<String, dynamic> selectedValuesFromDropDownText = {};
   Map<String, dynamic> selectedValuesFromUniqueId = {};
   Map<String, dynamic> selectedValuesFromImage = {};
@@ -69,7 +70,7 @@ class _Detail_form_pageState extends State<Detail_form_page> {
       {String? from, DateTime? initialDate, var disclosurId}) async {
     final DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: initialDate ?? _selectedDate ?? DateTime.now(),
+      initialDate: initialDate ?? _selectedDate,
       firstDate: DateTime(1900),
       lastDate: from == 'Date_Submission'
           ? DateTime.now()
@@ -147,7 +148,7 @@ class _Detail_form_pageState extends State<Detail_form_page> {
     return formattedTime;
   }
 
-  void _getCurrentLocation() async {
+  void _getCurrentLocation({var disclosurId}) async {
     PermissionStatus permissionStatus = await Permission.location.request();
 
     if (permissionStatus == PermissionStatus.granted) {
@@ -156,6 +157,10 @@ class _Detail_form_pageState extends State<Detail_form_page> {
       setState(() {
         _locationController.text =
             '${position.latitude}, ${position.longitude}';
+        selectedValuesFromLocation[disclosurId] = [
+          position.latitude,
+          position.longitude
+        ];
         _locationIsLoading = false;
       });
     } else {
@@ -306,10 +311,13 @@ class _Detail_form_pageState extends State<Detail_form_page> {
                             const SizedBox(
                               width: 10,
                             ),
-                            Text(
-                              formDetailList[0].name,
-                              style: const TextStyle(
-                                  color: Colors.black, fontSize: 34),
+                            Expanded(
+                              child: Text(
+                                formDetailList[0].name,
+                                style: const TextStyle(
+                                    color: Colors.black, fontSize: 34),
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
                           ],
                         ),
@@ -929,6 +937,21 @@ class _Detail_form_pageState extends State<Detail_form_page> {
               } else {
                 dateText = 'Select Date';
               }
+              int index = formDatavalues.indexWhere(
+                  (formData) => formData.custom_disclosure_id == id);
+              if (index != -1) {
+                // If FormData object with matching disclosureName is found, update its value
+                formDatavalues[index] = formDatavalues[index] = FormData(
+                    custom_disclosure_id: id,
+                    type: type,
+                    value: selectedValuesFromDateTime[id]);
+              } else {
+                // If FormData object with matching disclosureName is not found, add a new FormData object
+                formDatavalues.add(FormData(
+                    custom_disclosure_id: id,
+                    type: type,
+                    value: selectedValuesFromDateTime[id]));
+              }
             });
           },
           decoration: InputDecoration(
@@ -955,13 +978,20 @@ class _Detail_form_pageState extends State<Detail_form_page> {
           ),
         );
       case 'location':
+        String locationText = 'Current Location';
+        if (selectedValuesFromLocation[id] != null) {
+          locationText =
+              '${selectedValuesFromLocation[id][0]}, ${selectedValuesFromLocation[id][1]}';
+        } else {
+          locationText = 'Current Location';
+        }
         return Padding(
           padding: const EdgeInsets.all(10.0),
           child: TextField(
             controller: _locationController,
             readOnly: true,
             decoration: InputDecoration(
-              hintText: 'Current Location',
+              hintText: '$locationText',
               suffixIcon: IconButton(
                 icon: _locationIsLoading
                     ? Container(
@@ -974,8 +1004,23 @@ class _Detail_form_pageState extends State<Detail_form_page> {
                       )
                     : const Icon(Icons.location_on),
                 onPressed: () {
-                  _getCurrentLocation();
+                  _getCurrentLocation(disclosurId: id);
                   setState(() {
+                    int index = formDatavalues.indexWhere(
+                        (formData) => formData.custom_disclosure_id == id);
+                    if (index != -1) {
+                      // If FormData object with matching disclosureName is found, update its value
+                      formDatavalues[index] = formDatavalues[index] = FormData(
+                          custom_disclosure_id: id,
+                          type: type,
+                          value: selectedValuesFromLocation[id]);
+                    } else {
+                      // If FormData object with matching disclosureName is not found, add a new FormData object
+                      formDatavalues.add(FormData(
+                          custom_disclosure_id: id,
+                          type: type,
+                          value: selectedValuesFromLocation[id]));
+                    }
                     _locationIsLoading = true;
                   });
                 },
@@ -1817,10 +1862,14 @@ class FormData {
   });
 
   Map<String, dynamic> toJson() {
+    String formattedDate = '';
+    if (type == 'date') {
+      formattedDate = '${DateFormat('yyyy-MM-ddTHH:mm:ss.sss').format(value)}Z';
+    }
     return {
       'custom_disclosure_id': custom_disclosure_id,
       'type': type,
-      'value': value,
+      'value': formattedDate,
     };
   }
 }
