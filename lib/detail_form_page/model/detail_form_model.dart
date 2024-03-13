@@ -47,7 +47,7 @@ class CustomDisclosure {
   String disclosure;
   String disclosureName;
   String type;
-  List<String> valueList;
+  List valueList;
   String timer;
   bool required;
   bool isSubmissionExpected;
@@ -71,7 +71,7 @@ class CustomDisclosure {
       disclosure: json['disclosure'],
       disclosureName: json['disclosure_name'],
       type: json['type'],
-      valueList: List<String>.from(json['value_list'] ?? []),
+      valueList: List.from(json['value_list'] ?? []),
       timer: json['timer'],
       required: json['required'] ?? false,
       isSubmissionExpected: json['is_submission_expected'],

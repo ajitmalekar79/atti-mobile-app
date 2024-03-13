@@ -48,6 +48,7 @@ class _Detail_form_pageState extends State<Detail_form_page> {
   Map<String, dynamic> selectedValuesFromDropDownText = {};
   Map<String, dynamic> selectedValuesFromUniqueId = {};
   Map<String, dynamic> selectedValuesFromImage = {};
+  Map<String, dynamic> autoCompleteTextFieldKeys = {};
   final TextEditingController _selectdateController = TextEditingController();
   List<DateTime> _selectedDates = [];
   bool _locationIsLoading = false;
@@ -198,6 +199,12 @@ class _Detail_form_pageState extends State<Detail_form_page> {
         await _formDataController.getFormDetail(widget.itemId, date: date);
     firstLetter = formDetailList[0].name.substring(0, 1);
     backGroundColor = generateRandomColor();
+    formDetailList[0].customDisclosures.forEach((element) {
+      if (element.type == 'unique_id') {
+        autoCompleteTextFieldKeys[element.id] =
+            GlobalKey<AutoCompleteTextFieldState>();
+      }
+    });
 
     if (mounted) {
       setState(() {
@@ -247,6 +254,7 @@ class _Detail_form_pageState extends State<Detail_form_page> {
           DateFormat('yyyy-MM-dd').format(_selectedDate).toString();
       String formattedTime = DateFormat('HH:mm').format(DateTime.now());
       _timeController.text = formattedTime;
+      autoCompleteTextFieldKeys.clear();
     });
 
     getFormDetails();
@@ -683,6 +691,9 @@ class _Detail_form_pageState extends State<Detail_form_page> {
                   custom_disclosure_id: id,
                   type: type,
                   value: double.tryParse(value) ?? 0));
+            }
+            if (mounted) {
+              setState(() {});
             }
           },
         );
@@ -1169,8 +1180,6 @@ class _Detail_form_pageState extends State<Detail_form_page> {
           ],
         );
       case 'unique_id':
-        final List valueList = List.from(disclosure[index].valueList);
-
         return AutoCompleteTextField(
           decoration: const InputDecoration(
               hintText: "Enter a new value or select an existing value"),
@@ -1218,18 +1227,21 @@ class _Detail_form_pageState extends State<Detail_form_page> {
               }
             });
           },
-          key: autokey,
-          suggestions: valueList,
+          key: autoCompleteTextFieldKeys[id],
+          suggestions: disclosure[index].valueList,
           itemBuilder: (context, suggestion) => Padding(
               padding: const EdgeInsets.all(8.0),
               child: ListTile(
-                  title: Text(suggestion), trailing: Text(suggestion))),
-          itemSorter: (a, b) =>
-              a.toString().toLowerCase().compareTo(b.toString().toLowerCase()),
-          itemFilter: (suggestion, input) => suggestion
+                title: Text(suggestion['title']),
+              )),
+          itemSorter: (a, b) => a['title']
               .toString()
               .toLowerCase()
-              .startsWith(input.toLowerCase()),
+              .compareTo(b['title'].toString().toLowerCase()),
+          itemFilter: (suggestion, input) => suggestion['title']
+              .toString()
+              .toLowerCase()
+              .contains(input.toLowerCase()),
         );
       case 'computed':
         List<ComputedDisclosureModel> formula =
@@ -1294,15 +1306,22 @@ class _Detail_form_pageState extends State<Detail_form_page> {
     }
     int index = formDatavalues
         .indexWhere((formData) => formData.custom_disclosure_id == id);
-    if (index != -1) {
-      // If FormData object with matching disclosureName is found, update its value
-      formDatavalues[index] = formDatavalues[index] =
-          FormData(custom_disclosure_id: id, type: type, value: answer);
+    if (answer != 0.0) {
+      if (index != -1) {
+        // If FormData object with matching disclosureName is found, update its value
+        formDatavalues[index] =
+            FormData(custom_disclosure_id: id, type: type, value: answer);
+      } else {
+        // If FormData object with matching disclosureName is not found, add a new FormData object
+        formDatavalues
+            .add(FormData(custom_disclosure_id: id, type: type, value: answer));
+      }
     } else {
-      // If FormData object with matching disclosureName is not found, add a new FormData object
-      formDatavalues
-          .add(FormData(custom_disclosure_id: id, type: type, value: answer));
+      if (index != -1) {
+        formDatavalues.removeAt(index);
+      }
     }
+
     return answer;
   }
 
@@ -1869,7 +1888,7 @@ class FormData {
     return {
       'custom_disclosure_id': custom_disclosure_id,
       'type': type,
-      'value': formattedDate,
+      'value': type == 'date' ? formattedDate : value,
     };
   }
 }
