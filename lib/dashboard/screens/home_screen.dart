@@ -37,6 +37,7 @@ class _HomeScreenState extends State<HomeScreen> {
   double _menuHeight = 0.0;
   bool _menuOpened = false;
   String selectedFilter = 'Item';
+  bool clearVislibility = false;
 
   @override
   void initState() {
@@ -89,6 +90,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   getSearchList() async {
     isLoading = true;
+    clearVislibility = true;
     _filteredDataList.clear();
     homedata_list.clear();
     homedata_list = await _getListOnSearchController.getListOnSearch(
@@ -145,7 +147,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     _toggleMenu();
                   },
                   icon: const Icon(
-                    Icons.list_outlined,
+                    Icons.menu_rounded,
                     color: Colors.white,
                   )),
             ]),
@@ -228,7 +230,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ));
                               },
                               child: Container(
-                                height: screenHeight * 0.20,
+                                height: 150,
                                 padding: const EdgeInsets.all(10),
                                 margin: const EdgeInsets.symmetric(
                                     horizontal: 15, vertical: 10),
@@ -365,15 +367,16 @@ class _HomeScreenState extends State<HomeScreen> {
                                           width: MediaQuery.of(context)
                                                   .size
                                                   .width *
-                                              0.8, // Set desired width for the progress bar
+                                              0.85, // Set desired width for the progress bar
                                           decoration: BoxDecoration(
                                               borderRadius:
                                                   BorderRadius.circular(10)),
                                           child: LinearProgressIndicator(
                                             borderRadius:
                                                 BorderRadius.circular(10),
-                                            backgroundColor: Color.fromARGB(
-                                                255, 235, 236, 214),
+                                            backgroundColor:
+                                                const Color.fromARGB(
+                                                    255, 235, 236, 214),
                                             valueColor:
                                                 const AlwaysStoppedAnimation<
                                                         Color>(
@@ -425,25 +428,32 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Column(
             children: [
               Row(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
+                  Visibility(
+                    visible: clearVislibility,
+                    child: Container(
+                        width: MediaQuery.of(context).size.width * 0.14,
+                        height: 44,
+                        alignment: Alignment.center,
+                        child: TextButton(
+                            onPressed: () {
+                              getList();
+                              setState(() {
+                                clearVislibility = false;
+                                _searchController.clear();
+                                selectedFilter = 'Item';
+                              });
+                            },
+                            child: const Text(
+                              "Clear",
+                              maxLines: 1,
+                              style:
+                                  TextStyle(fontSize: 10, color: Colors.black),
+                            ))),
+                  ),
                   Container(
-                      width: MediaQuery.of(context).size.width * 0.14,
-                      height: 44,
-                      child: TextButton(
-                          onPressed: () {
-                            getList();
-                            setState(() {
-                              _searchController.clear();
-                              selectedFilter = 'Item';
-                            });
-                          },
-                          child: const Text(
-                            "Clear",
-                            maxLines: 1,
-                            style: TextStyle(fontSize: 10, color: Colors.black),
-                          ))),
-                  Container(
-                    height: 44,
+                    height: 35,
                     width: MediaQuery.of(context).size.width * 0.77,
                     alignment: Alignment.center,
                     padding: EdgeInsets.symmetric(horizontal: 5),
@@ -463,6 +473,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             controller: _searchController,
                             decoration: const InputDecoration(
                               hintText: 'Search ',
+                              hintStyle: TextStyle(fontSize: 14),
 
                               //  suffixIcon: Icon(Icons.search),
                               // suffix: IconButton(onPressed: () {}, icon: Icon(Icons.clear),style: ButtonStyle()),

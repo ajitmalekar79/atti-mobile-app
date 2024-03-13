@@ -51,6 +51,7 @@ class _Detail_form_pageState extends State<Detail_form_page> {
   List<DateTime> _selectedDates = [];
   bool _locationIsLoading = false;
   File? _image;
+  List<File> _images = [];
   final picker = ImagePicker();
   TextEditingController _imagePathController = TextEditingController();
 
@@ -270,7 +271,7 @@ class _Detail_form_pageState extends State<Detail_form_page> {
                   _toggleMenu();
                 },
                 icon: const Icon(
-                  Icons.list_outlined,
+                  Icons.menu_rounded,
                   color: Colors.white,
                 )),
           ]),
@@ -350,7 +351,7 @@ class _Detail_form_pageState extends State<Detail_form_page> {
                           const SizedBox(
                             width: 10,
                           ),
-                          Container(
+                          SizedBox(
                             height: 30, // Adjust height as needed
                             child: ListView.builder(
                               scrollDirection: Axis.horizontal,
@@ -567,7 +568,7 @@ class _Detail_form_pageState extends State<Detail_form_page> {
                                                       height: 20,
                                                       width: 20,
                                                       child:
-                                                          CircularProgressIndicator(
+                                                          const CircularProgressIndicator(
                                                               color:
                                                                   Colors.white),
                                                     )
@@ -612,7 +613,7 @@ class _Detail_form_pageState extends State<Detail_form_page> {
               children: [
                 InkWell(
                   onTap: () {
-                    _toggleMenu();
+                    Get.back();
                   },
                   child: Container(
                     padding: EdgeInsets.all(7),
@@ -747,23 +748,30 @@ class _Detail_form_pageState extends State<Detail_form_page> {
             ),
             const SizedBox(height: 20),
             Wrap(
-              spacing: 8,
+              spacing: 2,
               children: selectedTags.map((tag) {
-                return Chip(
-                  label: Text(tag),
-                  onDeleted: () {
-                    setState(() {
-                      selectedValuesFromTags[id].remove(tag);
-                      int index = formDatavalues.indexWhere(
-                          (formData) => formData.custom_disclosure_id == id);
-                      if (index != -1) {
-                        formDatavalues[index] = FormData(
-                            custom_disclosure_id: id,
-                            type: type,
-                            value: selectedValuesFromTags[id]);
-                      }
-                    });
-                  },
+                return Container(
+                  height: 35,
+                  child: Chip(
+                    backgroundColor: Colors.grey,
+                    label: Text(
+                      tag,
+                      style: const TextStyle(color: Colors.white, fontSize: 10),
+                    ),
+                    onDeleted: () {
+                      setState(() {
+                        selectedValuesFromTags[id].remove(tag);
+                        int index = formDatavalues.indexWhere(
+                            (formData) => formData.custom_disclosure_id == id);
+                        if (index != -1) {
+                          formDatavalues[index] = FormData(
+                              custom_disclosure_id: id,
+                              type: type,
+                              value: selectedValuesFromTags[id]);
+                        }
+                      });
+                    },
+                  ),
                 );
               }).toList(),
             ),
@@ -1749,7 +1757,11 @@ class _ExpandableListSubmissionState extends State<ExpandableListSubmission> {
               spacing: 8,
               children: selectedTags.map((tag) {
                 return Chip(
-                  label: Text(tag),
+                  backgroundColor: Colors.grey,
+                  label: Text(
+                    tag,
+                    style: TextStyle(color: Colors.white, fontSize: 12),
+                  ),
                   onDeleted: () {},
                 );
               }).toList(),

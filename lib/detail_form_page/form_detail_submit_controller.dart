@@ -50,20 +50,22 @@ class PostFormData extends GetxController {
         //   }
         // }
 
-        Map<String, dynamic> jsonDataMap = json.decode(response.body);
-        List<Map<String, dynamic>> s3Data =
-            List<Map<String, dynamic>>.from(jsonDataMap['s3Data']);
-        s3Data.forEach((s3Item) {
-          if (s3Item.containsKey('fields') &&
-              s3Item['fields'] is Map<String, dynamic>) {
-            Map<String, String> convertedFields = {};
-            s3Item['fields'].forEach((key, value) {
-              convertedFields[key] = value.toString();
-            });
-            s3Item['fields'] = convertedFields;
-          }
-        });
-        uploadImagesData(s3Data, imagePath);
+        if (imagePath != '') {
+          Map<String, dynamic> jsonDataMap = json.decode(response.body);
+          List<Map<String, dynamic>> s3Data =
+              List<Map<String, dynamic>>.from(jsonDataMap['s3Data']);
+          s3Data.forEach((s3Item) {
+            if (s3Item.containsKey('fields') &&
+                s3Item['fields'] is Map<String, dynamic>) {
+              Map<String, String> convertedFields = {};
+              s3Item['fields'].forEach((key, value) {
+                convertedFields[key] = value.toString();
+              });
+              s3Item['fields'] = convertedFields;
+            }
+          });
+          uploadImagesData(s3Data, imagePath);
+        }
 
         isSuccess = true;
       } else {
