@@ -44,6 +44,8 @@ class _Detail_form_pageState extends State<Detail_form_page> {
   Map<String, dynamic> selectedValuesFromTags = {};
   Map<String, dynamic> selectedValuesFromDropDown = {};
   Map<String, dynamic> selectedValuesFromDateTime = {};
+  Map<String, dynamic> selectedValuesFromLocation = {};
+  Map<String, dynamic> autoCompleteTextFieldKeys = {};
   Map<String, dynamic> selectedValuesFromDropDownText = {};
   Map<String, dynamic> selectedValuesFromUniqueId = {};
   Map<String, dynamic> selectedValuesFromImage = {};
@@ -149,7 +151,7 @@ class _Detail_form_pageState extends State<Detail_form_page> {
     return formattedTime;
   }
 
-  void _getCurrentLocation() async {
+  void _getCurrentLocation({var disclosurId}) async {
     PermissionStatus permissionStatus = await Permission.location.request();
 
     if (permissionStatus == PermissionStatus.granted) {
@@ -158,6 +160,10 @@ class _Detail_form_pageState extends State<Detail_form_page> {
       setState(() {
         _locationController.text =
             '${position.latitude}, ${position.longitude}';
+        selectedValuesFromLocation[disclosurId] = [
+          position.latitude,
+          position.longitude
+        ];
         _locationIsLoading = false;
       });
     } else {
@@ -193,8 +199,16 @@ class _Detail_form_pageState extends State<Detail_form_page> {
     });
     formDetailList =
         await _formDataController.getFormDetail(widget.itemId, date: date);
-    firstLetter = formDetailList[0].name.substring(0, 1);
+    firstLetter = formDetailList[0].name != ''
+        ? formDetailList[0].name.substring(0, 1)
+        : '';
     backGroundColor = generateRandomColor();
+    formDetailList[0].customDisclosures.forEach((element) {
+      if (element.type == 'unique_id') {
+        autoCompleteTextFieldKeys[element.id] =
+            GlobalKey<AutoCompleteTextFieldState>();
+      }
+    });
 
     if (mounted) {
       setState(() {
@@ -240,6 +254,7 @@ class _Detail_form_pageState extends State<Detail_form_page> {
       _locationIsLoading = false;
       _image = null;
       _imagePathController.clear();
+      autoCompleteTextFieldKeys.clear();
 
       formDatavalues = [];
       _dateController.text =
@@ -278,7 +293,24 @@ class _Detail_form_pageState extends State<Detail_form_page> {
       body: Stack(
         children: [
           isLoading
-              ? const Center(child: CircularProgressIndicator())
+              ? Container(
+                  width: screenWidth,
+                  child: const Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      SizedBox(
+                        height: 50,
+                      ),
+                      CircularProgressIndicator(
+                        color: Colors.black,
+                      ),
+                      SizedBox(
+                        height: 10,
+                      ),
+                      Text('Loading item ...')
+                    ],
+                  ),
+                )
               : SingleChildScrollView(
                   scrollDirection: Axis.vertical,
                   child: Column(
@@ -316,6 +348,7 @@ class _Detail_form_pageState extends State<Detail_form_page> {
                             Expanded(
                               child: Text(
                                 formDetailList[0].name,
+                                overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
                                     color: Colors.black, fontSize: 34),
                               ),
@@ -352,10 +385,12 @@ class _Detail_form_pageState extends State<Detail_form_page> {
                             width: 10,
                           ),
                           SizedBox(
-                            height: 30, // Adjust height as needed
+                            height: 30,
+                            width: screenWidth * 0.8,
+                            // Adjust height as needed
                             child: ListView.builder(
                               scrollDirection: Axis.horizontal,
-                              shrinkWrap: true,
+                              //shrinkWrap: true,
                               itemCount: formDetailList[0].tagList.length,
                               itemBuilder: (context, index) {
                                 return Container(
@@ -1053,6 +1088,21 @@ class _Detail_form_pageState extends State<Detail_form_page> {
               } else {
                 dateText = 'Select Date';
               }
+              int index = formDatavalues.indexWhere(
+                  (formData) => formData.custom_disclosure_id == id);
+              if (index != -1) {
+                // If FormData object with matching disclosureName is found, update its value
+                formDatavalues[index] = formDatavalues[index] = FormData(
+                    custom_disclosure_id: id,
+                    type: type,
+                    value: selectedValuesFromDateTime[id]);
+              } else {
+                // If FormData object with matching disclosureName is not found, add a new FormData object
+                formDatavalues.add(FormData(
+                    custom_disclosure_id: id,
+                    type: type,
+                    value: selectedValuesFromDateTime[id]));
+              }
             });
           },
           decoration: InputDecoration(
@@ -1079,6 +1129,13 @@ class _Detail_form_pageState extends State<Detail_form_page> {
           ),
         );
       case 'location':
+        String locationText = 'Current Location';
+        if (selectedValuesFromLocation[id] != null) {
+          locationText =
+              '${selectedValuesFromLocation[id][0]}, ${selectedValuesFromLocation[id][1]}';
+        } else {
+          locationText = 'Current Location';
+        }
         return TextField(
           controller: _locationController,
           readOnly: true,
@@ -1102,8 +1159,27 @@ class _Detail_form_pageState extends State<Detail_form_page> {
                       )),
               onPressed: () {
                 _getCurrentLocation();
+                _getCurrentLocation(disclosurId: id);
                 setState(() {
-                  _locationIsLoading = true;
+                  setState(() {
+                    int index = formDatavalues.indexWhere(
+                        (formData) => formData.custom_disclosure_id == id);
+                    if (index != -1) {
+                      // If FormData object with matching disclosureName is found, update its value
+                      formDatavalues[index] = formDatavalues[index] = FormData(
+                          custom_disclosure_id: id,
+                          type: type,
+                          value: selectedValuesFromLocation[id]);
+                    } else {
+                      // If FormData object with matching disclosureName is not found, add a new FormData object
+                      formDatavalues.add(FormData(
+                          custom_disclosure_id: id,
+                          type: type,
+                          value: selectedValuesFromLocation[id]));
+                    }
+                    _locationIsLoading = true;
+                    _locationIsLoading = true;
+                  });
                 });
               },
             ),
@@ -1280,18 +1356,19 @@ class _Detail_form_pageState extends State<Detail_form_page> {
           ],
         );
       case 'unique_id':
-        final List valueList = List.from(disclosure[index].valueList);
-
         return AutoCompleteTextField(
-          decoration: const InputDecoration(hintText: "Enter a new value"),
+          decoration: const InputDecoration(
+              hintText: "Enter a new value or select an existing value"),
           textChanged: (item) {
             setState(() {
-              selectedValuesFromUniqueId[id] = {'value': item};
+              selectedValuesFromUniqueId[id] = {
+                'value': item,
+              };
               int index = formDatavalues.indexWhere(
                   (formData) => formData.custom_disclosure_id == id);
               if (index != -1) {
                 // If FormData object with matching disclosureName is found, update its value
-                formDatavalues[index] = FormData(
+                formDatavalues[index] = formDatavalues[index] = FormData(
                     custom_disclosure_id: id,
                     type: type,
                     value: selectedValuesFromUniqueId[id]);
@@ -1306,12 +1383,14 @@ class _Detail_form_pageState extends State<Detail_form_page> {
           },
           itemSubmitted: (item) {
             setState(() {
-              selectedValuesFromUniqueId[id] = {'value': item};
+              selectedValuesFromUniqueId[id] = {
+                'value': item,
+              };
               int index = formDatavalues.indexWhere(
                   (formData) => formData.custom_disclosure_id == id);
               if (index != -1) {
                 // If FormData object with matching disclosureName is found, update its value
-                formDatavalues[index] = FormData(
+                formDatavalues[index] = formDatavalues[index] = FormData(
                     custom_disclosure_id: id,
                     type: type,
                     value: selectedValuesFromUniqueId[id]);
@@ -1324,18 +1403,21 @@ class _Detail_form_pageState extends State<Detail_form_page> {
               }
             });
           },
-          key: autokey,
-          suggestions: valueList,
+          key: autoCompleteTextFieldKeys[id],
+          suggestions: disclosure[index].valueList,
           itemBuilder: (context, suggestion) => Padding(
               padding: const EdgeInsets.all(8.0),
               child: ListTile(
-                  title: Text(suggestion), trailing: Text(suggestion))),
-          itemSorter: (a, b) =>
-              a.toString().toLowerCase().compareTo(b.toString().toLowerCase()),
-          itemFilter: (suggestion, input) => suggestion
+                title: Text(suggestion['title']),
+              )),
+          itemSorter: (a, b) => a['title']
               .toString()
               .toLowerCase()
-              .startsWith(input.toLowerCase()),
+              .compareTo(b['title'].toString().toLowerCase()),
+          itemFilter: (suggestion, input) => suggestion['title']
+              .toString()
+              .toLowerCase()
+              .contains(input.toLowerCase()),
         );
       // final List valueList = List.from(disclosure[index].valueList);
 
@@ -1462,15 +1544,22 @@ class _Detail_form_pageState extends State<Detail_form_page> {
     }
     int index = formDatavalues
         .indexWhere((formData) => formData.custom_disclosure_id == id);
-    if (index != -1) {
-      // If FormData object with matching disclosureName is found, update its value
-      formDatavalues[index] = formDatavalues[index] =
-          FormData(custom_disclosure_id: id, type: type, value: answer);
+    if (answer != 0.0) {
+      if (index != -1) {
+        // If FormData object with matching disclosureName is found, update its value
+        formDatavalues[index] = formDatavalues[index] =
+            FormData(custom_disclosure_id: id, type: type, value: answer);
+      } else {
+        // If FormData object with matching disclosureName is not found, add a new FormData object
+        formDatavalues
+            .add(FormData(custom_disclosure_id: id, type: type, value: answer));
+      }
     } else {
-      // If FormData object with matching disclosureName is not found, add a new FormData object
-      formDatavalues
-          .add(FormData(custom_disclosure_id: id, type: type, value: answer));
+      if (index != -1) {
+        formDatavalues.removeAt(index);
+      }
     }
+
     return answer;
   }
 
@@ -2121,10 +2210,14 @@ class FormData {
   });
 
   Map<String, dynamic> toJson() {
+    String formattedDate = '';
+    if (type == 'date') {
+      formattedDate = '${DateFormat('yyyy-MM-ddTHH:mm:ss.sss').format(value)}Z';
+    }
     return {
       'custom_disclosure_id': custom_disclosure_id,
       'type': type,
-      'value': value,
+      'value': type == 'date' ? formattedDate : value,
     };
   }
 }

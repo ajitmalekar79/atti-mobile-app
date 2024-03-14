@@ -46,7 +46,7 @@ dependencies:
   permission_handler: ^11.3.0
   image_picker: ^1.0.7
   autocomplete_textfield: ^2.0.1
-  image_picker: ^1.0.7
+  
  
 
 

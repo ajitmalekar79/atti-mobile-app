@@ -201,14 +201,41 @@ class _HomeScreenState extends State<HomeScreen> {
             // Display paginated items
             Expanded(
               child: isLoading
-                  ? Center(child: CircularProgressIndicator())
+                  ? Container(
+                      width: screenWidth,
+                      child: const Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          SizedBox(
+                            height: 50,
+                          ),
+                          CircularProgressIndicator(
+                            color: Colors.black,
+                          ),
+                          SizedBox(
+                            height: 10,
+                          ),
+                          Text('Loading item ...')
+                        ],
+                      ),
+                    )
                   : _filteredDataList.isEmpty
-                      ? Text('No data found')
+                      ? const Padding(
+                          padding: EdgeInsets.all(8.0),
+                          child: Text(
+                            'No data found',
+                            style: TextStyle(fontSize: 20),
+                          ),
+                        )
                       : ListView.builder(
                           itemCount: _filteredDataList.length,
                           itemBuilder: (context, index) {
                             String firstLetter =
-                                _filteredDataList[index].name.substring(0, 1);
+                                _filteredDataList[index].name != ''
+                                    ? _filteredDataList[index]
+                                        .name
+                                        .substring(0, 1)
+                                    : '';
                             Color generateRandomColor() {
                               Random random = Random();
                               int red = 200 +
@@ -319,35 +346,42 @@ class _HomeScreenState extends State<HomeScreen> {
                                       height: 5,
                                     ),
 
-                                    Container(
-                                      height: 30, // Adjust height as needed
-                                      alignment: Alignment.centerLeft,
+                                    SizedBox(
+                                      height: 30,
+                                      width: screenWidth * 0.8,
+                                      // Adjust height as needed
                                       child: ListView.builder(
                                         scrollDirection: Axis.horizontal,
-                                        shrinkWrap: true,
-                                        itemCount:
-                                            _filteredDataList[0].tagList.length,
-                                        itemBuilder: (context, index) {
+                                        //shrinkWrap: true,
+                                        itemCount: _filteredDataList[index]
+                                            .tagList
+                                            .length,
+                                        itemBuilder: (context, index1) {
                                           return Container(
                                             padding: const EdgeInsets.all(
                                                 2), // Adjust width as needed
-                                            margin: EdgeInsets.symmetric(
-                                                horizontal: 7),
+                                            margin: const EdgeInsets.symmetric(
+                                                horizontal: 6),
                                             decoration: BoxDecoration(
-                                              color: index % 2 == 0
-                                                  ? Colors.grey
-                                                  : const Color.fromARGB(
-                                                      255, 240, 232, 218),
-                                              borderRadius:
-                                                  BorderRadius.circular(2),
-                                            ),
+                                                color: index1 % 2 == 0
+                                                    ? Colors.grey
+                                                    : const Color.fromARGB(
+                                                        255, 240, 232, 218),
+                                                borderRadius:
+                                                    BorderRadius.circular(2),
+                                                boxShadow: const [
+                                                  BoxShadow(
+                                                    blurRadius: 1,
+                                                    color: Colors.grey,
+                                                  )
+                                                ]),
 
                                             alignment: Alignment.center,
                                             child: Text(
-                                              _filteredDataList[0]
-                                                  .tagList[index],
+                                              _filteredDataList[index]
+                                                  .tagList[index1],
                                               style: TextStyle(
-                                                color: index % 2 == 0
+                                                color: index1 % 2 == 0
                                                     ? Colors.white
                                                     : Colors.black,
                                               ),
