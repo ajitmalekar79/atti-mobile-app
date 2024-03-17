@@ -32,7 +32,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool isLoading = true;
   int currentPage = 1;
   int itemsPerPage = 10;
-  int pagesCount = 0;
+  int pagesCount = 1;
   int selectedPage = 1;
   double _menuHeight = 0.0;
   bool _menuOpened = false;
@@ -77,7 +77,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (mounted) {
       setState(() {
-        pagesCount = _filteredDataList[0].pageSize;
+        int pageCount = _homedataListController.pageCount;
+        int pageSize = _homedataListController.pageSize;
+        pagesCount = (pageCount / pageSize).ceil();
+        // (_homedataListController.pageCount / _filteredDataList[0].pageSize)
+        //     .ceil();
         isLoading = false;
       });
     }
@@ -93,9 +97,15 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (mounted) {
       setState(() {
-        pagesCount =
-            _filteredDataList.isNotEmpty ? _filteredDataList[0].pageSize : 1;
-        isLoading = false;
+        int pageCount = _getListOnSearchController.pageCount;
+        int pageSize = _getListOnSearchController.pageSize;
+        if (pageCount == 0) {
+          pagesCount = 1;
+          isLoading = false;
+        } else {
+          pagesCount = (pageCount / pageSize).ceil();
+          isLoading = false;
+        }
       });
     }
   }
@@ -173,16 +183,16 @@ class _HomeScreenState extends State<HomeScreen> {
                           style: TextStyle(color: Colors.white)),
                     ),
                   ),
-                  InkWell(
-                    onTap: () {},
-                    child: Container(
-                      padding: const EdgeInsets.all(7),
-                      width: screenWidth,
-                      alignment: Alignment.center,
-                      child: const Text('Settings',
-                          style: TextStyle(color: Colors.white)),
-                    ),
-                  ),
+                  // InkWell(
+                  //   onTap: () {},
+                  //   child: Container(
+                  //     padding: const EdgeInsets.all(7),
+                  //     width: screenWidth,
+                  //     alignment: Alignment.center,
+                  //     child: const Text('Settings',
+                  //         style: TextStyle(color: Colors.white)),
+                  //   ),
+                  // ),
                 ],
               ),
             ),
@@ -417,16 +427,20 @@ class _HomeScreenState extends State<HomeScreen> {
               Row(
                 children: [
                   Container(
-                      width: MediaQuery.of(context).size.width * 0.12,
+                      width: MediaQuery.of(context).size.width * 0.14,
                       height: 44,
                       child: TextButton(
                           onPressed: () {
                             getList();
+                            setState(() {
+                              _searchController.clear();
+                              selectedFilter = 'Item';
+                            });
                           },
                           child: const Text(
-                            "clear ",
+                            "Clear",
                             maxLines: 1,
-                            style: TextStyle(fontSize: 8),
+                            style: TextStyle(fontSize: 10, color: Colors.black),
                           ))),
                   Container(
                     height: 44,
@@ -477,7 +491,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   value: value,
                                   child: Text(
                                     value,
-                                    style: TextStyle(fontSize: 12),
+                                    style: const TextStyle(fontSize: 12),
                                   ), // Display text for each item
                                 );
                               }).toList(),
@@ -487,13 +501,15 @@ class _HomeScreenState extends State<HomeScreen> {
                             child: InkWell(
                               onTap: () {
                                 setState(() {
-                                  getSearchList();
+                                  _searchController.text != ''
+                                      ? getSearchList()
+                                      : null;
                                 });
                               },
                               child: Container(
                                 height: 35,
                                 alignment: Alignment.center,
-                                child: const Icon(Icons.search, size: 18),
+                                child: Icon(Icons.search, size: 18),
                                 color: Color.fromARGB(255, 250, 247, 232),
                               ),
                             ))
@@ -508,11 +524,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
               NumberPaginator(
                 // by default, the paginator shows numbers as center content
-                numberPages: 24,
+                numberPages: pagesCount,
                 onPageChange: (int index) {
                   setState(() {
                     isLoading = true;
-                    selectedPage = index;
+                    selectedPage = index + 1;
                     getList();
                     // _currentPage is a variable within State of StatefulWidget
                   });

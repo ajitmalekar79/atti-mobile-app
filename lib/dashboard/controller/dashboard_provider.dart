@@ -5,10 +5,8 @@ import 'package:http/http.dart' as http;
 import '../models/dashboard_data_model.dart';
 
 class HomeDataListController extends GetxController {
-  var currentPage = 1.obs; // Observable for current page
-  var minPage = 1.obs; // Observable for minimum page number displayed
-  var maxPage = 4.obs;
-
+  int pageSize = 1;
+  int pageCount = 1;
   Future<List<MyItem>> getList(selectedPage) async {
     final prefs = await SharedPreferences.getInstance();
     final apiToken = prefs.getString('tocken');
@@ -30,6 +28,12 @@ class HomeDataListController extends GetxController {
                 (x) => MyItem.fromJson(x),
               ),
         );
+        Map<String, dynamic> data = jsonDecode(response.body);
+
+        // Retrieve values and store in int variables
+        pageSize = data['page_size'];
+        pageCount = data['count'];
+        update();
         // eventListModelList = json.decode(response.body)['data'];
       } else {
         throw Exception('Failed to load events');
@@ -39,29 +43,8 @@ class HomeDataListController extends GetxController {
     }
     return homedata_list;
   }
-
-  void updatePageRange() {
-    minPage.value = currentPage.value - 1;
-    maxPage.value = currentPage.value + 2;
-  }
-
-  // Function to handle back arrow button press
-  void onBackArrowPressed() {
-    if (minPage.value > 1) {
-      minPage.value = minPage.value - 4 < 1 ? 1 : minPage.value - 4;
-      maxPage.value = minPage.value + 3;
-      // fetchData(minPage.value); // Fetch data for the new range
-      updatePageRange();
-    }
-  }
+}
 
   // Function to handle forward arrow button press
-  void onForwardArrowPressed() {
-    if (maxPage.value < currentPage.value) {
-      minPage.value = maxPage.value + 1;
-      maxPage.value = maxPage.value + 4;
-      // fetchData(minPage.value); // Fetch data for the new range
-      updatePageRange();
-    }
-  }
-}
+  
+
