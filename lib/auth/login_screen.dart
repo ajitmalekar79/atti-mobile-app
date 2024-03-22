@@ -1,9 +1,8 @@
 import 'package:attheblocks/auth/forgot_password.dart';
-import 'package:attheblocks/auth/sign_up_screen.dart';
+import 'package:attheblocks/auth/mobile_login_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-
 import '../auth_controller.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -188,28 +187,28 @@ class _LoginScreenState extends State<LoginScreen> {
                   ],
                 ),
                 const SizedBox(height: 40),
-                // GestureDetector(
-                //   onTap: () {
-                //     Get.to(const SignUpScreen(),
-                //         transition: Transition.rightToLeft,
-                //         duration: Duration(milliseconds: 500));
-                //   },
-                //   child: RichText(
-                //     text: const TextSpan(
-                //       text: "Don't have an account? ",
-                //       style: TextStyle(fontSize: 15, color: Color(0xFF343434)),
-                //       children: <TextSpan>[
-                //         TextSpan(
-                //           text: 'Sign up!',
-                //           style: TextStyle(
-                //               fontSize: 15,
-                //               color: Color.fromARGB(255, 255, 115, 0),
-                //               fontWeight: FontWeight.bold),
-                //         ),
-                //       ],
-                //     ),
-                //   ),
-                // ),
+                GestureDetector(
+                  onTap: () {
+                    Get.to(const MobileLoginScreen(),
+                        transition: Transition.rightToLeft,
+                        duration: Duration(milliseconds: 500));
+                  },
+                  child: RichText(
+                    text: const TextSpan(
+                      text: "Login with mobile number",
+                      style: TextStyle(fontSize: 15, color: Color(0xFF343434)),
+                      children: <TextSpan>[
+                        // TextSpan(
+                        //   text: 'Sign up!',
+                        //   style: TextStyle(
+                        //       fontSize: 15,
+                        //       color: Color.fromARGB(255, 255, 115, 0),
+                        //       fontWeight: FontWeight.bold),
+                        // ),
+                      ],
+                    ),
+                  ),
+                ),
               ],
             ),
           ),

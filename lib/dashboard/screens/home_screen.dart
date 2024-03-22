@@ -415,7 +415,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                                 const AlwaysStoppedAnimation<
                                                         Color>(
                                                     Color.fromARGB(
-                                                        255, 233, 233, 213)),
+                                                        255, 107, 160, 58)),
                                             value: _filteredDataList[index]
                                                     .percentCompleted /
                                                 100, // Set progress value (0.0 - 1.0)
@@ -425,7 +425,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                           child: Align(
                                             alignment: Alignment.center,
                                             child: Text(
-                                              '${_filteredDataList[index].percentCompleted.toString()}% completed   ',
+                                              '${_filteredDataList[index].percentCompleted.toStringAsFixed(2)} % completed  ',
                                               style: const TextStyle(
                                                   color: Colors.black,
                                                   fontSize: 8),

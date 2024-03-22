@@ -46,6 +46,9 @@ dependencies:
   permission_handler: ^11.3.0
   image_picker: ^1.0.7
   autocomplete_textfield: ^2.0.1
+  country_code_picker: ^3.0.0
+  pinput: ^3.0.1
+  
   
  
 
