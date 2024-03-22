@@ -1,8 +1,10 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
 import 'package:attheblocks/detail_form_page/detail_submission_controller.dart';
 import 'package:autocomplete_textfield/autocomplete_textfield.dart';
+import 'package:connectivity/connectivity.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
@@ -56,7 +58,7 @@ class _Detail_form_pageState extends State<Detail_form_page> {
   List<String> imagePaths = [];
   final picker = ImagePicker();
   TextEditingController _imagePathController = TextEditingController();
-
+  bool _isConnected = false;
   bool isLoading = true;
   bool submitDataLoading = false;
   final List<String> itemList = [
@@ -67,6 +69,18 @@ class _Detail_form_pageState extends State<Detail_form_page> {
     'Item 2': 'Data for Item 2',
     'Item 3': 'Data for Item 3',
   };
+
+  @override
+  void initState() {
+    super.initState();
+    DateTime now = DateTime.now();
+    _selectedDate = now;
+    _dateController.text =
+        DateFormat('yyyy-MM-dd').format(_selectedDate).toString();
+    String formattedTime = DateFormat('HH:mm').format(now);
+    _timeController.text = formattedTime;
+    getFormDetails();
+  }
 
   Future<void> _pickImage() async {
     final picker = ImagePicker();
@@ -222,18 +236,6 @@ class _Detail_form_pageState extends State<Detail_form_page> {
     }
   }
 
-  @override
-  void initState() {
-    super.initState();
-    DateTime now = DateTime.now();
-    _selectedDate = now;
-    _dateController.text =
-        DateFormat('yyyy-MM-dd').format(_selectedDate).toString();
-    String formattedTime = DateFormat('HH:mm').format(now);
-    _timeController.text = formattedTime;
-    getFormDetails();
-  }
-
   void _toggleMenu() {
     setState(() {
       _menuOpened = !_menuOpened;
@@ -280,6 +282,55 @@ class _Detail_form_pageState extends State<Detail_form_page> {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     // Clear relevant data from SharedPreferences
     await prefs.clear();
+  }
+
+  Future<void> _checkConnectivity() async {
+    var connectivityResult = await Connectivity().checkConnectivity();
+    setState(() {
+      _isConnected = connectivityResult == ConnectivityResult.mobile ||
+          connectivityResult == ConnectivityResult.wifi;
+    });
+  }
+
+  Future<void> _storeFormData(List<FormData> formData) async {
+    // Store form data in local cache
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    List<String> formDataJsonList =
+        formData.map((data) => jsonEncode(data.toJson())).toList();
+    await prefs.setStringList('form_data', formDataJsonList);
+    await prefs.setString('itemId', widget.itemId);
+    await prefs.setString('selectedDate', _selectedDate.toString());
+  }
+
+  Future<void> _clearCache() async {
+    // Clear form data from local cache
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.remove('form_data');
+  }
+
+  // Future<void> _uploadCachedData() async {
+  //   SharedPreferences prefs = await SharedPreferences.getInstance();
+  //   List<String>? formDataJsonList = prefs.getStringList('form_data');
+  //   String? itemId = prefs.getString('itemId');
+  //   List<String>? _selectedDate = prefs.getStringList('selectedDate');
+  //   if (formDataJsonList != null && formDataJsonList.isNotEmpty) {
+  //     List<FormData> formData = formDataJsonList
+  //         .map((jsonString) => FormData.fromJson(jsonDecode(jsonString)))
+  //         .toList();
+  //     await _submitForm(formData);
+  //     DateTime date = DateTime.parse(_selectedDate as String);
+  //     await _postFormData.submitFormData(
+  //         formData, itemId!, date);
+  //     clearData();
+  //   }
+  // }
+
+  void _submitFormData(List<FormData> formData) {
+    if (_isConnected) {
+      // _submitForm(formData);
+    } else {
+      _storeFormData(formData);
+    }
   }
 
   clearData() {
@@ -637,11 +688,25 @@ class _Detail_form_pageState extends State<Detail_form_page> {
                                               submitDataLoading = true;
                                             });
 
-                                            await _postFormData.submitFormData(
-                                                formDatavalues,
-                                                widget.itemId,
-                                                _selectedDate);
-                                            clearData();
+                                            if (formDatavalues.isEmpty) {
+                                              setState(() {
+                                                submitDataLoading = false;
+                                              });
+                                              ScaffoldMessenger.of(context)
+                                                  .showSnackBar(
+                                                const SnackBar(
+                                                  content: Text(
+                                                      'Please Fill In At List One Disclosure'),
+                                                ),
+                                              );
+                                            } else {
+                                              await _postFormData
+                                                  .submitFormData(
+                                                      formDatavalues,
+                                                      widget.itemId,
+                                                      _selectedDate);
+                                              clearData();
+                                            }
                                           },
                                           child: Container(
                                               color: Colors.black,
@@ -2374,6 +2439,14 @@ class FormData {
     required this.value,
     required this.type,
   });
+
+  factory FormData.fromJson(Map<String, dynamic> json) {
+    return FormData(
+      custom_disclosure_id: json['custom_disclosure_id'],
+      value: json['value'],
+      type: json['type'],
+    );
+  }
 
   Map<String, dynamic> toJson() {
     String formattedDate = '';
