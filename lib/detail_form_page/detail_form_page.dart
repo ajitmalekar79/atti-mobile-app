@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
@@ -45,17 +46,18 @@ class _Detail_form_pageState extends State<Detail_form_page> {
   Map<String, dynamic> selectedValuesFromDropDown = {};
   Map<String, dynamic> selectedValuesFromDateTime = {};
   Map<String, dynamic> selectedValuesFromLocation = {};
+  Map<String, dynamic> autoCompleteTextFieldKeys = {};
   Map<String, dynamic> selectedValuesFromDropDownText = {};
   Map<String, dynamic> selectedValuesFromUniqueId = {};
   Map<String, dynamic> selectedValuesFromImage = {};
-  Map<String, dynamic> autoCompleteTextFieldKeys = {};
   final TextEditingController _selectdateController = TextEditingController();
   List<DateTime> _selectedDates = [];
   bool _locationIsLoading = false;
   File? _image;
+  List<String> imagePaths = [];
   final picker = ImagePicker();
   TextEditingController _imagePathController = TextEditingController();
-
+  bool _isConnected = false;
   bool isLoading = true;
   bool submitDataLoading = false;
   final List<String> itemList = [
@@ -67,12 +69,74 @@ class _Detail_form_pageState extends State<Detail_form_page> {
     'Item 3': 'Data for Item 3',
   };
 
+  @override
+  void initState() {
+    super.initState();
+    DateTime now = DateTime.now();
+    _selectedDate = now;
+    _dateController.text =
+        DateFormat('yyyy-MM-dd').format(_selectedDate).toString();
+    String formattedTime = DateFormat('HH:mm').format(now);
+    _timeController.text = formattedTime;
+    getFormDetails();
+  }
+
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+    if (pickedFile != null) {
+      setState(() {
+        imagePaths.add(pickedFile.path);
+      });
+    }
+  }
+
+  Future<void> _takePicture() async {
+    final picker = ImagePicker();
+    final pickedImage = await picker.pickImage(source: ImageSource.camera);
+
+    if (pickedImage != null) {
+      setState(() {
+        imagePaths.add(pickedImage.path);
+      });
+    }
+  }
+
+  void _removeImage(int index) {
+    setState(() {
+      imagePaths.removeAt(index);
+    });
+  }
+
+  // Future<void> _pickImage(String id) async {
+  //   final picker = ImagePicker();
+  //   final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+
+  //   if (pickedFile != null) {
+  //     formDatavalues.add(FormData(
+  //         custom_disclosure_id: id, type: 'gallery', value: pickedFile.path));
+  //     setState(() {
+  //       final field = formDatavalues.firstWhere(
+  //           (formDatavalues) => formDatavalues.custom_disclosure_id == id);
+  //       field.value.add(pickedFile.path);
+  //     });
+  //   }
+  // }
+
+  // void _removeImage(String Id, int index) {
+  //   setState(() {
+  //     final field = formDatavalues.firstWhere(
+  //         (formDatavalues) => formDatavalues.custom_disclosure_id == Id);
+  //     field.value.removeAt(index);
+  //   });
+  // }
+
   List<FormData> formDatavalues = [];
   Future<void> _selectDate(BuildContext context,
       {String? from, DateTime? initialDate, var disclosurId}) async {
     final DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: initialDate ?? _selectedDate,
+      initialDate: initialDate ?? _selectedDate ?? DateTime.now(),
       firstDate: DateTime(1900),
       lastDate: from == 'Date_Submission'
           ? DateTime.now()
@@ -171,18 +235,6 @@ class _Detail_form_pageState extends State<Detail_form_page> {
     }
   }
 
-  @override
-  void initState() {
-    super.initState();
-    DateTime now = DateTime.now();
-    _selectedDate = now;
-    _dateController.text =
-        DateFormat('yyyy-MM-dd').format(_selectedDate).toString();
-    String formattedTime = DateFormat('HH:mm').format(now);
-    _timeController.text = formattedTime;
-    getFormDetails();
-  }
-
   void _toggleMenu() {
     setState(() {
       _menuOpened = !_menuOpened;
@@ -191,14 +243,16 @@ class _Detail_form_pageState extends State<Detail_form_page> {
   }
 
   getFormDetails({DateTime? date}) async {
-    setState(() {
-      formDetailList.clear();
+    // setState(() {
+    formDetailList.clear();
 
-      //_formDataController.data.value.tagList.clear();
-    });
+    //_formDataController.data.value.tagList.clear();
+    // });
     formDetailList =
         await _formDataController.getFormDetail(widget.itemId, date: date);
-    firstLetter = formDetailList[0].name.substring(0, 1);
+    firstLetter = formDetailList[0].name != ''
+        ? formDetailList[0].name.substring(0, 1)
+        : '';
     backGroundColor = generateRandomColor();
     formDetailList[0].customDisclosures.forEach((element) {
       if (element.type == 'unique_id') {
@@ -229,6 +283,47 @@ class _Detail_form_pageState extends State<Detail_form_page> {
     await prefs.clear();
   }
 
+  Future<void> _storeFormData(List<FormData> formData) async {
+    // Store form data in local cache
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    List<String> formDataJsonList =
+        formData.map((data) => jsonEncode(data.toJson())).toList();
+    await prefs.setStringList('form_data', formDataJsonList);
+    await prefs.setString('itemId', widget.itemId);
+    await prefs.setString('selectedDate', _selectedDate.toString());
+  }
+
+  Future<void> _clearCache() async {
+    // Clear form data from local cache
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.remove('form_data');
+  }
+
+  // Future<void> _uploadCachedData() async {
+  //   SharedPreferences prefs = await SharedPreferences.getInstance();
+  //   List<String>? formDataJsonList = prefs.getStringList('form_data');
+  //   String? itemId = prefs.getString('itemId');
+  //   List<String>? _selectedDate = prefs.getStringList('selectedDate');
+  //   if (formDataJsonList != null && formDataJsonList.isNotEmpty) {
+  //     List<FormData> formData = formDataJsonList
+  //         .map((jsonString) => FormData.fromJson(jsonDecode(jsonString)))
+  //         .toList();
+  //     await _submitForm(formData);
+  //     DateTime date = DateTime.parse(_selectedDate as String);
+  //     await _postFormData.submitFormData(
+  //         formData, itemId!, date);
+  //     clearData();
+  //   }
+  // }
+
+  void _submitFormData(List<FormData> formData) {
+    if (_isConnected) {
+      // _submitForm(formData);
+    } else {
+      _storeFormData(formData);
+    }
+  }
+
   clearData() {
     setState(() {
       _menuHeight = 0.0;
@@ -238,7 +333,7 @@ class _Detail_form_pageState extends State<Detail_form_page> {
       _dateController.clear();
       _timeController.clear();
       _locationController.clear();
-      formDetailList = [];
+      // formDetailList = [];
       selectedValuesFromCheckbox = {};
       selectedValuesFromRadioBtn = {};
       selectedValuesFromTags = {};
@@ -251,13 +346,14 @@ class _Detail_form_pageState extends State<Detail_form_page> {
       _locationIsLoading = false;
       _image = null;
       _imagePathController.clear();
+      autoCompleteTextFieldKeys.clear();
+      imagePaths = [];
 
       formDatavalues = [];
       _dateController.text =
           DateFormat('yyyy-MM-dd').format(_selectedDate).toString();
       String formattedTime = DateFormat('HH:mm').format(DateTime.now());
       _timeController.text = formattedTime;
-      autoCompleteTextFieldKeys.clear();
     });
 
     getFormDetails();
@@ -283,14 +379,31 @@ class _Detail_form_pageState extends State<Detail_form_page> {
                   _toggleMenu();
                 },
                 icon: const Icon(
-                  Icons.list_outlined,
+                  Icons.menu_rounded,
                   color: Colors.white,
                 )),
           ]),
       body: Stack(
         children: [
-          isLoading
-              ? const Center(child: CircularProgressIndicator())
+          isLoading || formDetailList.isEmpty
+              ? Container(
+                  width: screenWidth,
+                  child: const Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      SizedBox(
+                        height: 50,
+                      ),
+                      CircularProgressIndicator(
+                        color: Colors.black,
+                      ),
+                      SizedBox(
+                        height: 10,
+                      ),
+                      Text('Loading item ...')
+                    ],
+                  ),
+                )
               : SingleChildScrollView(
                   scrollDirection: Axis.vertical,
                   child: Column(
@@ -328,9 +441,9 @@ class _Detail_form_pageState extends State<Detail_form_page> {
                             Expanded(
                               child: Text(
                                 formDetailList[0].name,
+                                overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
                                     color: Colors.black, fontSize: 34),
-                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
                           ],
@@ -364,11 +477,13 @@ class _Detail_form_pageState extends State<Detail_form_page> {
                           const SizedBox(
                             width: 10,
                           ),
-                          Container(
-                            height: 30, // Adjust height as needed
+                          SizedBox(
+                            height: 30,
+                            width: screenWidth * 0.8,
+                            // Adjust height as needed
                             child: ListView.builder(
                               scrollDirection: Axis.horizontal,
-                              shrinkWrap: true,
+                              //shrinkWrap: true,
                               itemCount: formDetailList[0].tagList.length,
                               itemBuilder: (context, index) {
                                 return Container(
@@ -564,12 +679,25 @@ class _Detail_form_pageState extends State<Detail_form_page> {
                                               submitDataLoading = true;
                                             });
 
-                                            await _postFormData.submitFormData(
-                                                formDatavalues,
-                                                widget.itemId,
-                                                _selectedDate,
-                                                _image?.path);
-                                            clearData();
+                                            if (formDatavalues.isEmpty) {
+                                              setState(() {
+                                                submitDataLoading = false;
+                                              });
+                                              ScaffoldMessenger.of(context)
+                                                  .showSnackBar(
+                                                const SnackBar(
+                                                  content: Text(
+                                                      'Please Fill In At List One Disclosure'),
+                                                ),
+                                              );
+                                            } else {
+                                              await _postFormData
+                                                  .submitFormData(
+                                                      formDatavalues,
+                                                      widget.itemId,
+                                                      _selectedDate);
+                                              clearData();
+                                            }
                                           },
                                           child: Container(
                                               color: Colors.black,
@@ -581,7 +709,7 @@ class _Detail_form_pageState extends State<Detail_form_page> {
                                                       height: 20,
                                                       width: 20,
                                                       child:
-                                                          CircularProgressIndicator(
+                                                          const CircularProgressIndicator(
                                                               color:
                                                                   Colors.white),
                                                     )
@@ -626,7 +754,7 @@ class _Detail_form_pageState extends State<Detail_form_page> {
               children: [
                 InkWell(
                   onTap: () {
-                    _toggleMenu();
+                    Get.back();
                   },
                   child: Container(
                     padding: EdgeInsets.all(7),
@@ -711,9 +839,6 @@ class _Detail_form_pageState extends State<Detail_form_page> {
                   type: type,
                   value: double.tryParse(value) ?? 0));
             }
-            if (mounted) {
-              setState(() {});
-            }
           },
         );
 
@@ -764,23 +889,30 @@ class _Detail_form_pageState extends State<Detail_form_page> {
             ),
             const SizedBox(height: 20),
             Wrap(
-              spacing: 8,
+              spacing: 2,
               children: selectedTags.map((tag) {
-                return Chip(
-                  label: Text(tag),
-                  onDeleted: () {
-                    setState(() {
-                      selectedValuesFromTags[id].remove(tag);
-                      int index = formDatavalues.indexWhere(
-                          (formData) => formData.custom_disclosure_id == id);
-                      if (index != -1) {
-                        formDatavalues[index] = FormData(
-                            custom_disclosure_id: id,
-                            type: type,
-                            value: selectedValuesFromTags[id]);
-                      }
-                    });
-                  },
+                return Container(
+                  height: 35,
+                  child: Chip(
+                    backgroundColor: Colors.grey,
+                    label: Text(
+                      tag,
+                      style: const TextStyle(color: Colors.white, fontSize: 10),
+                    ),
+                    onDeleted: () {
+                      setState(() {
+                        selectedValuesFromTags[id].remove(tag);
+                        int index = formDatavalues.indexWhere(
+                            (formData) => formData.custom_disclosure_id == id);
+                        if (index != -1) {
+                          formDatavalues[index] = FormData(
+                              custom_disclosure_id: id,
+                              type: type,
+                              value: selectedValuesFromTags[id]);
+                        }
+                      });
+                    },
+                  ),
                 );
               }).toList(),
             ),
@@ -1110,26 +1242,31 @@ class _Detail_form_pageState extends State<Detail_form_page> {
         } else {
           locationText = 'Current Location';
         }
-        return Padding(
-          padding: const EdgeInsets.all(10.0),
-          child: TextField(
-            controller: _locationController,
-            readOnly: true,
-            decoration: InputDecoration(
-              hintText: '$locationText',
-              suffixIcon: IconButton(
-                icon: _locationIsLoading
-                    ? Container(
-                        height: 10,
-                        width: 10,
-                        child: const CircularProgressIndicator(
-                          strokeAlign: 0.2,
-                          strokeWidth: 2,
-                        ),
-                      )
-                    : const Icon(Icons.location_on),
-                onPressed: () {
-                  _getCurrentLocation(disclosurId: id);
+        return TextField(
+          controller: _locationController,
+          readOnly: true,
+          decoration: InputDecoration(
+            hintText: 'Current Location',
+            suffixIcon: IconButton(
+              icon: _locationIsLoading
+                  ? Container(
+                      height: 10,
+                      width: 10,
+                      child: const CircularProgressIndicator(
+                        strokeAlign: 0.2,
+                        strokeWidth: 2,
+                      ),
+                    )
+                  : const CircleAvatar(
+                      backgroundColor: Colors.black,
+                      child: Icon(
+                        Icons.location_on,
+                        color: Colors.white,
+                      )),
+              onPressed: () {
+                _getCurrentLocation();
+                _getCurrentLocation(disclosurId: id);
+                setState(() {
                   setState(() {
                     int index = formDatavalues.indexWhere(
                         (formData) => formData.custom_disclosure_id == id);
@@ -1147,9 +1284,10 @@ class _Detail_form_pageState extends State<Detail_form_page> {
                           value: selectedValuesFromLocation[id]));
                     }
                     _locationIsLoading = true;
+                    _locationIsLoading = true;
                   });
-                },
-              ),
+                });
+              },
             ),
           ),
         );
@@ -1231,109 +1369,193 @@ class _Detail_form_pageState extends State<Detail_form_page> {
           ],
         );
       case 'gallery':
+        // bool isAvailable = false;
+        // int imageindex = 0;
+        // for (var field in formDatavalues) {
+        //   if (field.custom_disclosure_id == id) {
+        //     isAvailable = true;
+        //   }
+        // }
+        // int ii = 0;
+        // for (ii = 0; ii < formDatavalues.length; ii++) {
+        //   if (formDatavalues[ii].custom_disclosure_id == id) {
+        //     isAvailable = true;
+        //     imageindex = ii;
+        //   }
+        // }
         return Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
-            _image == null
-                ? Text('No image selected.')
-                : Container(
-                    height: 150,
-                    width: 200,
-                    child: Image.file(
-                      _image!,
-                      fit: BoxFit.fill,
-                    )),
-            const SizedBox(height: 20),
-            GestureDetector(
-              onTap: () async {
-                await getImage();
-                if (_image != null) {
-                  selectedValuesFromImage[id] = [_image?.path];
-                  int index = formDatavalues.indexWhere(
-                      (formData) => formData.custom_disclosure_id == id);
-                  if (index != -1) {
-                    // If FormData object with matching disclosureName is found, update its value
-                    formDatavalues[index] = formDatavalues[index] = FormData(
-                        custom_disclosure_id: id,
-                        type: type,
-                        value: selectedValuesFromImage[id]);
-                  } else {
-                    // If FormData object with matching disclosureName is not found, add a new FormData object
-                    formDatavalues.add(FormData(
-                        custom_disclosure_id: id,
-                        type: type,
-                        value: selectedValuesFromImage[id]));
-                  }
-                }
-              },
-              child: const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              child: Row(
                 children: [
-                  Icon(Icons.attach_file),
-                  SizedBox(width: 10),
-                  Text('Attach Image'),
+                  GestureDetector(
+                    onTap: () async {
+                      await _pickImage();
+                      // if (_image != null) {
+                      selectedValuesFromImage[id] = imagePaths;
+                      int index = formDatavalues.indexWhere(
+                          (formData) => formData.custom_disclosure_id == id);
+                      if (index != -1) {
+                        // If FormData object with matching disclosureName is found, update its value
+                        formDatavalues[index] = formDatavalues[index] =
+                            FormData(
+                                custom_disclosure_id: id,
+                                type: type,
+                                value: selectedValuesFromImage[id]);
+                      } else {
+                        // If FormData object with matching disclosureName is not found, add a new FormData object
+                        formDatavalues.add(FormData(
+                            custom_disclosure_id: id,
+                            type: type,
+                            value: selectedValuesFromImage[id]));
+                      }
+                      // }
+                    },
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.attach_file),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: TextField(
+                      controller: _imagePathController,
+                      readOnly: true,
+                      decoration: InputDecoration(
+                        hintText: 'Image Path',
+                        // prefix: IconButton(
+                        //     icon: Icon(Icons.attach_file),
+                        //     onPressed: () {
+                        //       setState(() async {
+                        //         await getImage();
+                        //         if (_image != null) {
+                        //           selectedValuesFromImage[id] = [_image?.path];
+                        //           int index = formDatavalues.indexWhere(
+                        //               (formData) =>
+                        //                   formData.custom_disclosure_id == id);
+                        //           if (index != -1) {
+                        //             // If FormData object with matching disclosureName is found, update its value
+                        //             formDatavalues[index] =
+                        //                 formDatavalues[index] = FormData(
+                        //                     custom_disclosure_id: id,
+                        //                     type: type,
+                        //                     value: selectedValuesFromImage[id]);
+                        //           } else {
+                        //             // If FormData object with matching disclosureName is not found, add a new FormData object
+                        //             formDatavalues.add(FormData(
+                        //                 custom_disclosure_id: id,
+                        //                 type: type,
+                        //                 value: selectedValuesFromImage[id]));
+                        //           }
+                        //         }
+                        //       });
+                        //     }),
+                        suffixIcon: IconButton(
+                          icon: Icon(Icons.clear),
+                          onPressed: () {
+                            setState(() {
+                              _image = null;
+                              _imagePathController.clear();
+                            });
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
+                  const Text('or'),
+                  const SizedBox(
+                    width: 4,
+                  ),
+                  InkWell(
+                    onTap: () {
+                      _takePicture();
+                      selectedValuesFromImage[id] = imagePaths;
+                      int index = formDatavalues.indexWhere(
+                          (formData) => formData.custom_disclosure_id == id);
+                      if (index != -1) {
+                        // If FormData object with matching disclosureName is found, update its value
+                        formDatavalues[index] = formDatavalues[index] =
+                            FormData(
+                                custom_disclosure_id: id,
+                                type: type,
+                                value: selectedValuesFromImage[id]);
+                      } else {
+                        // If FormData object with matching disclosureName is not found, add a new FormData object
+                        formDatavalues.add(FormData(
+                            custom_disclosure_id: id,
+                            type: type,
+                            value: selectedValuesFromImage[id]));
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      color: Colors.black,
+                      child: const Text(
+                        'USE CAMERA',
+                        style: TextStyle(color: Colors.white, fontSize: 12),
+                      ),
+                    ),
+                  )
                 ],
               ),
             ),
-            SizedBox(height: 20),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              child: TextField(
-                controller: _imagePathController,
-                readOnly: true,
-                decoration: InputDecoration(
-                  hintText: 'Image Path',
-                  prefix: IconButton(
-                      icon: Icon(Icons.attach_file),
-                      onPressed: () {
-                        setState(() async {
-                          await getImage();
-                          if (_image != null) {
-                            selectedValuesFromImage[id] = [_image?.path];
-                            int index = formDatavalues.indexWhere((formData) =>
-                                formData.custom_disclosure_id == id);
-                            if (index != -1) {
-                              // If FormData object with matching disclosureName is found, update its value
-                              formDatavalues[index] = formDatavalues[index] =
-                                  FormData(
-                                      custom_disclosure_id: id,
-                                      type: type,
-                                      value: selectedValuesFromImage[id]);
-                            } else {
-                              // If FormData object with matching disclosureName is not found, add a new FormData object
-                              formDatavalues.add(FormData(
-                                  custom_disclosure_id: id,
-                                  type: type,
-                                  value: selectedValuesFromImage[id]));
-                            }
-                          }
-                        });
-                      }),
-                  suffixIcon: IconButton(
-                    icon: Icon(Icons.clear),
-                    onPressed: () {
-                      setState(() {
-                        _image = null;
-                        _imagePathController.clear();
-                      });
-                    },
-                  ),
-                ),
+            // if (formDatavalues[index].value != null &&
+            //     formDatavalues[index].value)
+            GridView.builder(
+              itemCount:
+                  imagePaths.length, //formDatavalues[index].value?.length,
+              shrinkWrap: true,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
+                crossAxisSpacing: 4.0,
+                mainAxisSpacing: 4.0,
               ),
+              itemBuilder: (context, index1) {
+                return Stack(
+                  children: <Widget>[
+                    Image.file(
+                      File(imagePaths[index1]),
+                      fit: BoxFit.cover,
+                      width: double.infinity,
+                      height: double.infinity,
+                    ),
+                    Positioned(
+                      top: 2,
+                      right: 2,
+                      child: IconButton(
+                        icon: Icon(Icons.delete_forever_sharp),
+                        color: Colors.black,
+                        onPressed: () {
+                          _removeImage(index1);
+                        },
+                      ),
+                    ),
+                  ],
+                );
+              },
             ),
+
+            SizedBox(height: 20),
           ],
         );
       case 'unique_id':
         return AutoCompleteTextField(
-          decoration: const InputDecoration(hintText: "Enter a new value"),
+          decoration: const InputDecoration(
+              hintText: "Enter a new value or select an existing value"),
+          clearOnSubmit: false,
           textChanged: (item) {
             setState(() {
-              selectedValuesFromUniqueId[id] = {'value': item};
+              selectedValuesFromUniqueId[id] = {
+                'value': item,
+              };
               int index = formDatavalues.indexWhere(
                   (formData) => formData.custom_disclosure_id == id);
               if (index != -1) {
                 // If FormData object with matching disclosureName is found, update its value
-                formDatavalues[index] = FormData(
+                formDatavalues[index] = formDatavalues[index] = FormData(
                     custom_disclosure_id: id,
                     type: type,
                     value: selectedValuesFromUniqueId[id]);
@@ -1348,12 +1570,14 @@ class _Detail_form_pageState extends State<Detail_form_page> {
           },
           itemSubmitted: (item) {
             setState(() {
-              selectedValuesFromUniqueId[id] = {'value': item};
+              selectedValuesFromUniqueId[id] = {
+                'value': item,
+              };
               int index = formDatavalues.indexWhere(
                   (formData) => formData.custom_disclosure_id == id);
               if (index != -1) {
                 // If FormData object with matching disclosureName is found, update its value
-                formDatavalues[index] = FormData(
+                formDatavalues[index] = formDatavalues[index] = FormData(
                     custom_disclosure_id: id,
                     type: type,
                     value: selectedValuesFromUniqueId[id]);
@@ -1510,7 +1734,7 @@ class _Detail_form_pageState extends State<Detail_form_page> {
     if (answer != 0.0) {
       if (index != -1) {
         // If FormData object with matching disclosureName is found, update its value
-        formDatavalues[index] =
+        formDatavalues[index] = formDatavalues[index] =
             FormData(custom_disclosure_id: id, type: type, value: answer);
       } else {
         // If FormData object with matching disclosureName is not found, add a new FormData object
@@ -1809,7 +2033,11 @@ class _ExpandableListSubmissionState extends State<ExpandableListSubmission> {
               spacing: 8,
               children: selectedTags.map((tag) {
                 return Chip(
-                  label: Text(tag),
+                  backgroundColor: Colors.grey,
+                  label: Text(
+                    tag,
+                    style: TextStyle(color: Colors.white, fontSize: 12),
+                  ),
                   onDeleted: () {},
                 );
               }).toList(),
@@ -2003,13 +2231,48 @@ class _ExpandableListSubmissionState extends State<ExpandableListSubmission> {
             children: <Widget>[
               disclosure[index].value == null
                   ? const Text('No image found.')
-                  : Container(
-                      height: 120,
-                      width: 150,
-                      child: Image.network(
-                        disclosure[index].value[0].toString()!,
-                        fit: BoxFit.fill,
-                      )),
+                  : GridView.builder(
+                      itemCount: disclosure[index]
+                          .value
+                          .length, //formDatavalues[index].value?.length,
+                      shrinkWrap: true,
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 3,
+                        crossAxisSpacing: 4.0,
+                        mainAxisSpacing: 4.0,
+                      ),
+                      itemBuilder: (context, index1) {
+                        return Stack(
+                          children: <Widget>[
+                            Image.network(
+                              disclosure[index].value[index1],
+                              fit: BoxFit.fill,
+                              // width: double.infinity,
+                              // height: double.infinity,
+                              loadingBuilder:
+                                  (context, child, loadingProgress) => Center(
+                                      child: Container(
+                                          height: 50,
+                                          width: 50,
+                                          padding: const EdgeInsets.all(10),
+                                          child:
+                                              const CircularProgressIndicator(
+                                            color: Colors.black,
+                                          ))),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+
+              // Container(
+              //     height: 120,
+              //     width: 150,
+              //     child: Image.network(
+              //       disclosure[index].value[0].toString()!,
+              //       fit: BoxFit.fill,
+              //     )),
             ]);
 
       default:
@@ -2167,6 +2430,14 @@ class FormData {
     required this.value,
     required this.type,
   });
+
+  factory FormData.fromJson(Map<String, dynamic> json) {
+    return FormData(
+      custom_disclosure_id: json['custom_disclosure_id'],
+      value: json['value'],
+      type: json['type'],
+    );
+  }
 
   Map<String, dynamic> toJson() {
     String formattedDate = '';

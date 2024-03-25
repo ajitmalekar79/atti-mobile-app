@@ -11,14 +11,18 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class PostFormData extends GetxController {
-  Future<bool> submitFormData(List<forData.FormData> data, String itemId,
-      DateTime date, imagePath) async {
+  Future<bool> submitFormData(
+      List<forData.FormData> data, String itemId, DateTime date) async {
     bool isSuccess = false;
     String formattedDate =
         '${DateFormat('yyyy-MM-ddTHH:mm:ss.sss').format(date)}Z';
     List<Map<String, dynamic>> postData = [];
+    List<String> imagePaths = [];
     for (var element in data) {
       postData.add(element.toJson());
+      if (element.type == 'gallery') {
+        imagePaths.addAll(element.value);
+      }
     }
 
     try {
@@ -50,6 +54,7 @@ class PostFormData extends GetxController {
         //   }
         // }
 
+        // if (imagePath != '') {
         Map<String, dynamic> jsonDataMap = json.decode(response.body);
         List<Map<String, dynamic>> s3Data =
             List<Map<String, dynamic>>.from(jsonDataMap['s3Data']);
@@ -63,12 +68,14 @@ class PostFormData extends GetxController {
             s3Item['fields'] = convertedFields;
           }
         });
-        uploadImagesData(s3Data, imagePath);
+        uploadImagesData(s3Data, imagePaths);
+        // }
 
         isSuccess = true;
       } else {
         isSuccess = false;
-        throw Exception('Failed to load events');
+
+        // throw Exception('Failed to load events');
       }
     } catch (e) {
       throw Exception('Failed to load events');
@@ -76,8 +83,8 @@ class PostFormData extends GetxController {
     return isSuccess;
   }
 
-  Future<void> uploadImagesData(s3Data, imagePath) async {
-    String uploadUrl = 'YOUR_UPLOAD_URL';
+  Future<void> uploadImagesData(s3Data, List<String> imagePaths) async {
+    // String uploadUrl = 'YOUR_UPLOAD_URL';
     // List<Map<String, dynamic>> s3Data = [
     //   {
     //     "url":
@@ -115,17 +122,17 @@ class PostFormData extends GetxController {
     //   }
     // ];
 
-    for (var s3Item in s3Data) {
-      var request = http.MultipartRequest('POST', Uri.parse(s3Item['url']));
+    for (int i = 0; i < s3Data.length; i++) {
+      var request = http.MultipartRequest('POST', Uri.parse(s3Data[i]['url']));
       try {
-        s3Data.forEach((s3Item) {
-          if (s3Item.containsKey('fields')) {
-            request.fields.addAll(s3Item['fields']!);
-          }
-        });
+        // s3Data.forEach((s3Item) {
+        if (s3Data[i].containsKey('fields')) {
+          request.fields.addAll(s3Data[i]['fields']!);
+        }
+        // });
 
         // Add file to the request
-        File file = File('$imagePath'); // Replace with your file path
+        File file = File(imagePaths[i]); // Replace with your file path
         var multipartFile =
             await http.MultipartFile.fromPath('file', file.path);
         request.files.add(multipartFile);
