@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:attheblocks/detail_form_page/detail_form_page.dart';
@@ -5,8 +6,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:number_paginator/number_paginator.dart';
-import 'package:pagination_flutter/pagination.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../auth_controller.dart';
 import '../controller/dashboard_provider.dart';
 import '../models/dashboard_data_model.dart';
 import '../search_controller/search controller.dart';
@@ -26,6 +27,7 @@ class _HomeScreenState extends State<HomeScreen> {
       Get.find<GetListOnSearchController>();
   ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
+  final PostAuthTocken _postAuthTocken = Get.find<PostAuthTocken>();
   List<MyItem> _filteredDataList = [];
   List<String> items = List.generate(100, (index) => 'Item ${index + 1}');
   List<String> _data = [];
@@ -44,12 +46,30 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _scrollController.addListener(_scrollListener);
     getList();
+    Timer.periodic(Duration(minutes: 15), (timer) {
+      _getIdToken();
+    });
   }
 
   @override
   void dispose() {
     _scrollController.dispose();
     super.dispose();
+  }
+
+  Future<String?> _getIdToken() async {
+    try {
+      User? user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        IdTokenResult idTokenResult = await user.getIdTokenResult();
+        await _postAuthTocken.postAuthTocken(idTokenResult.token.toString());
+
+        return idTokenResult.token;
+      }
+    } catch (e) {
+      print('Error retrieving ID token: $e');
+    }
+    return '';
   }
 
   setSelectedPage(int index) {
@@ -153,6 +173,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ]),
         body: Column(
           children: [
+            //InternetConnectionListener(),
             AnimatedContainer(
               duration: const Duration(milliseconds: 300),
               height: _menuHeight,

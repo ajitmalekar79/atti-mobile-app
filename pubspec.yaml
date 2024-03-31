@@ -29,6 +29,8 @@ dependencies:
   cupertino_icons: ^1.0.2
   http: ^1.2.0
   connectivity: ^3.0.6
+  dio: ^5.4.1
+  flutter_secure_storage: ^9.0.0
   firebase_core: ^2.25.5
   firebase_auth: ^4.17.6
   firebase_messaging: ^14.7.10
@@ -49,6 +51,8 @@ dependencies:
   autocomplete_textfield: ^2.0.1
   country_code_picker: ^3.0.0
   pinput: ^3.0.1
+  api_cache_manager: ^1.0.2
+  flutter_typeahead: ^5.2.0
   
   
  

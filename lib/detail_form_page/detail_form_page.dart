@@ -1,22 +1,27 @@
+// ignore_for_file: use_build_context_synchronously
+
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
-
 import 'package:attheblocks/detail_form_page/detail_submission_controller.dart';
 import 'package:autocomplete_textfield/autocomplete_textfield.dart';
 import 'package:connectivity/connectivity.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_typeahead/flutter_typeahead.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'data_base_helper.dart';
 import 'detail_form_controller.dart';
 import 'form_detail_submit_controller.dart';
 import 'model/detail_form_model.dart';
 import 'model/detail_submission_model.dart';
+import 'model/offline_submission_model.dart';
 
 class Detail_form_page extends StatefulWidget {
   final String itemId;
@@ -41,6 +46,7 @@ class _Detail_form_pageState extends State<Detail_form_page> {
   final TextEditingController _timeController = TextEditingController();
   final TextEditingController _locationController = TextEditingController();
   List<FormDetailModel> formDetailList = [];
+  List<SubmissionModel> submissions = [];
   Map<String, List<dynamic>> selectedValuesFromCheckbox = {};
   Map<String, dynamic> selectedValuesFromRadioBtn = {};
   Map<String, dynamic> selectedValuesFromTags = {};
@@ -52,6 +58,7 @@ class _Detail_form_pageState extends State<Detail_form_page> {
   Map<String, dynamic> selectedValuesFromUniqueId = {};
   Map<String, dynamic> selectedValuesFromImage = {};
   final TextEditingController _selectdateController = TextEditingController();
+  Map<String, TextEditingController> autoCompleteTextFieldController = {};
   List<DateTime> _selectedDates = [];
   bool _locationIsLoading = false;
   File? _image;
@@ -79,7 +86,84 @@ class _Detail_form_pageState extends State<Detail_form_page> {
         DateFormat('yyyy-MM-dd').format(_selectedDate).toString();
     String formattedTime = DateFormat('HH:mm').format(now);
     _timeController.text = formattedTime;
+    // uploadFormDetails();
+
     getFormDetails();
+    getOfflineList();
+  }
+
+  getOfflineList() async {
+    submissions = await DatabaseHelper.instance.retrieveSubmissions();
+  }
+
+  uploadFormDetails() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    if (prefs.getString('itemId') == null || prefs.getString('itemId') == '') {
+    } else {
+      String itemidString = prefs.getString('itemId') ?? '';
+      String selectedDateString = prefs.getString(
+            'selectedDate',
+          ) ??
+          '';
+      List<FormData> formDataList = await getFormDataList();
+      DateTime selectedDateOff = DateTime.parse(selectedDateString);
+
+      await _postFormData.submitFormData(
+          formDataList, itemidString, selectedDateOff);
+
+      clearData();
+      await prefs.setStringList('form_data', []);
+      await prefs.setString('itemId', '');
+    }
+  }
+
+  Future<void> _syncData() async {
+    var connectivityResult = await Connectivity().checkConnectivity();
+    if (connectivityResult == ConnectivityResult.none) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please check internet connection'),
+        ),
+      );
+    } else {
+      List<SubmissionModel> submissions =
+          await DatabaseHelper.instance.retrieveSubmissions();
+      for (SubmissionModel submission in submissions) {
+        await _postFormData.submitFormData(
+            submission.formDataList, submission.itemId, submission.date);
+        DatabaseHelper.instance.deleteSubmission(submission.itemId);
+        setState(() {
+          getFormDetails();
+          getOfflineList();
+        });
+      }
+      DatabaseHelper.instance.deleteAllSubmissions();
+    }
+  }
+
+  Future<List<FormData>> getFormDataList() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    List<String>? jsonList = prefs.getStringList('form_data');
+    if (jsonList != null) {
+      try {
+        return jsonList
+            .map((jsonString) => FormData.fromJson(json.decode(jsonString)))
+            .toList();
+      } catch (e) {
+        // Handle parsing errors here
+        print('Error parsing JSON: $e');
+      }
+    }
+    return [];
+  }
+
+  List<FormData> convertStringToFormDataList(String? jsonString) {
+    List<dynamic> jsonList = json.decode(jsonString!);
+    List<FormData> formDataList = jsonList.map((jsonData) {
+      Map<String, dynamic> formDataMap = Map<String, dynamic>.from(jsonData);
+      return FormData.fromJson(formDataMap);
+    }).toList();
+    return formDataList;
   }
 
   Future<void> _pickImage() async {
@@ -368,6 +452,39 @@ class _Detail_form_pageState extends State<Detail_form_page> {
     getFormDetails();
   }
 
+  clearOfflineData() {
+    setState(() {
+      _menuHeight = 0.0;
+      _menuOpened = false;
+      _selectedDate = DateTime.now();
+      _selectedTime = TimeOfDay.now();
+      _dateController.clear();
+      _timeController.clear();
+      _locationController.clear();
+      // formDetailList = [];
+      selectedValuesFromCheckbox = {};
+      selectedValuesFromRadioBtn = {};
+      selectedValuesFromTags = {};
+      selectedValuesFromDropDown = {};
+      selectedValuesFromDateTime = {};
+      selectedValuesFromDropDownText = {};
+      selectedValuesFromUniqueId = {};
+      _selectdateController.clear();
+      _selectedDates = [];
+      _locationIsLoading = false;
+      _image = null;
+      _imagePathController.clear();
+      autoCompleteTextFieldKeys.clear();
+      imagePaths = [];
+
+      formDatavalues = [];
+      _dateController.text =
+          DateFormat('yyyy-MM-dd').format(_selectedDate).toString();
+      String formattedTime = DateFormat('HH:mm').format(DateTime.now());
+      _timeController.text = formattedTime;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     double screenWidth = MediaQuery.of(context).size.width;
@@ -383,6 +500,14 @@ class _Detail_form_pageState extends State<Detail_form_page> {
             ),
           ),
           actions: [
+            IconButton(
+                onPressed: () {
+                  _syncData();
+                },
+                icon: const Icon(
+                  Icons.sync,
+                  color: Colors.white,
+                )),
             IconButton(
                 onPressed: () {
                   _toggleMenu();
@@ -442,7 +567,7 @@ class _Detail_form_pageState extends State<Detail_form_page> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Container(
-                                padding: EdgeInsets.only(top: 10),
+                                padding: const EdgeInsets.only(top: 10),
                                 child: const Icon(Icons.category_rounded)),
                             const SizedBox(
                               width: 10,
@@ -684,9 +809,6 @@ class _Detail_form_pageState extends State<Detail_form_page> {
                                             //             formDatavalues),
                                             //   ),
                                             // );
-                                            setState(() {
-                                              submitDataLoading = true;
-                                            });
 
                                             if (formDatavalues.isEmpty) {
                                               setState(() {
@@ -700,12 +822,63 @@ class _Detail_form_pageState extends State<Detail_form_page> {
                                                 ),
                                               );
                                             } else {
-                                              await _postFormData
-                                                  .submitFormData(
-                                                      formDatavalues,
-                                                      widget.itemId,
-                                                      _selectedDate);
-                                              clearData();
+                                              await _checkConnectivity();
+                                              if (_isConnected == true) {
+                                                setState(() {
+                                                  submitDataLoading = true;
+                                                });
+                                                await _postFormData
+                                                    .submitFormData(
+                                                        formDatavalues,
+                                                        widget.itemId,
+                                                        _selectedDate);
+                                                clearData();
+                                              } else {
+                                                // SharedPreferences prefs =
+                                                //     await SharedPreferences
+                                                //         .getInstance();
+
+                                                // List<String> jsonList =
+                                                //     formDatavalues
+                                                //         .map((formData) =>
+                                                //             json.encode(formData
+                                                //                 .toJson()))
+                                                //         .toList();
+                                                // await prefs.setStringList(
+                                                //     'form_data', jsonList);
+
+                                                // await prefs.setString(
+                                                //     'itemId', widget.itemId);
+                                                // await prefs.setString(
+                                                //     'selectedDate',
+                                                //     _selectedDate.toString());
+
+                                                SubmissionModel
+                                                    submitDataOffline =
+                                                    SubmissionModel(
+                                                        date: _selectedDate,
+                                                        itemId: widget.itemId,
+                                                        formDataList:
+                                                            formDatavalues);
+                                                await DatabaseHelper.instance
+                                                    .insertSubmission(
+                                                        submitDataOffline);
+                                                setState(() {
+                                                  getOfflineList();
+                                                });
+
+                                                // clearData();
+                                                ScaffoldMessenger.of(context)
+                                                    .showSnackBar(
+                                                  const SnackBar(
+                                                    content: Text(
+                                                        'No internet data submitted offline'),
+                                                  ),
+                                                );
+                                                // setState(() {
+                                                //   submitDataLoading = false;
+                                                // });
+                                              }
                                             }
                                           },
                                           child: Container(
@@ -732,6 +905,50 @@ class _Detail_form_pageState extends State<Detail_form_page> {
                                 ),
                               )
                             ],
+                          );
+                        },
+                      ),
+                      ListView.builder(
+                        itemCount: submissions.length,
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemBuilder: (context, index) {
+                          final data = submissions[index];
+
+                          String formattedDate =
+                              DateFormat('MMMM d, yyyy - HH:mm')
+                                  .format(data.date);
+                          return Container(
+                            height: 50,
+                            margin: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 3),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 15, vertical: 2),
+                            decoration: const BoxDecoration(
+                                color: Colors.white,
+                                boxShadow: [
+                                  BoxShadow(
+                                      blurRadius: 1,
+                                      spreadRadius: 1,
+                                      color: Colors.grey)
+                                ]),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  formattedDate,
+                                  style: TextStyle(fontSize: 18),
+                                ),
+                                const Text(
+                                  'Pending',
+                                  style: TextStyle(
+                                      fontSize: 14, color: Colors.orange),
+                                ),
+                                // ExpandableListOfflineSubmission(
+                                //   title: formattedDate,
+                                // )
+                              ],
+                            ),
                           );
                         },
                       ),
@@ -1551,70 +1768,130 @@ class _Detail_form_pageState extends State<Detail_form_page> {
           ],
         );
       case 'unique_id':
-        return AutoCompleteTextField(
-          decoration: const InputDecoration(
-              hintText: "Enter a new value or select an existing value"),
-          clearOnSubmit: false,
-          textChanged: (item) {
-            setState(() {
-              selectedValuesFromUniqueId[id] = {
-                'value': item,
-              };
-              int index = formDatavalues.indexWhere(
-                  (formData) => formData.custom_disclosure_id == id);
-              if (index != -1) {
-                // If FormData object with matching disclosureName is found, update its value
-                formDatavalues[index] = formDatavalues[index] = FormData(
-                    custom_disclosure_id: id,
-                    type: type,
-                    value: selectedValuesFromUniqueId[id]);
-              } else {
-                // If FormData object with matching disclosureName is not found, add a new FormData object
-                formDatavalues.add(FormData(
-                    custom_disclosure_id: id,
-                    type: type,
-                    value: selectedValuesFromUniqueId[id]));
-              }
-            });
-          },
-          itemSubmitted: (item) {
-            setState(() {
-              selectedValuesFromUniqueId[id] = {
-                'value': item,
-              };
-              int index = formDatavalues.indexWhere(
-                  (formData) => formData.custom_disclosure_id == id);
-              if (index != -1) {
-                // If FormData object with matching disclosureName is found, update its value
-                formDatavalues[index] = formDatavalues[index] = FormData(
-                    custom_disclosure_id: id,
-                    type: type,
-                    value: selectedValuesFromUniqueId[id]);
-              } else {
-                // If FormData object with matching disclosureName is not found, add a new FormData object
-                formDatavalues.add(FormData(
-                    custom_disclosure_id: id,
-                    type: type,
-                    value: selectedValuesFromUniqueId[id]));
-              }
-            });
-          },
-          key: autoCompleteTextFieldKeys[id],
-          suggestions: disclosure[index].valueList,
-          itemBuilder: (context, suggestion) => Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: ListTile(
-                title: Text(suggestion['title']),
-              )),
-          itemSorter: (a, b) => a['title']
-              .toString()
-              .toLowerCase()
-              .compareTo(b['title'].toString().toLowerCase()),
-          itemFilter: (suggestion, input) => suggestion['title']
-              .toString()
-              .toLowerCase()
-              .contains(input.toLowerCase()),
+        return Column(
+          children: [
+            TypeAheadField(
+              controller: autoCompleteTextFieldController[id],
+              builder: (context, controller, focusNode) => CupertinoTextField(
+                controller: controller,
+                focusNode: focusNode,
+                decoration:
+                    BoxDecoration(border: Border.all(color: Colors.white)),
+                // autofocus: true,
+                padding: const EdgeInsets.all(12),
+                placeholder: 'Enter a new value or select an existing value',
+              ),
+              itemBuilder: (context, suggestion) {
+                return Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: ListTile(
+                      title: Text(suggestion['title']),
+                    ));
+              },
+              onSelected: (item) {
+                setState(() {
+                  autoCompleteTextFieldController[id] =
+                      TextEditingController(text: item['title']);
+                  selectedValuesFromUniqueId[id] = item;
+                  int index = formDatavalues.indexWhere(
+                      (formData) => formData.custom_disclosure_id == id);
+                  if (index != -1) {
+                    // If FormData object with matching disclosureName is found, update its value
+                    formDatavalues[index] = formDatavalues[index] = FormData(
+                        custom_disclosure_id: id,
+                        type: type,
+                        value: selectedValuesFromUniqueId[id]);
+                  } else {
+                    // If FormData object with matching disclosureName is not found, add a new FormData object
+                    formDatavalues.add(FormData(
+                        custom_disclosure_id: id,
+                        type: type,
+                        value: selectedValuesFromUniqueId[id]));
+                  }
+                });
+              },
+              suggestionsCallback: (search) {
+                return Future<List>.delayed(
+                  const Duration(milliseconds: 300),
+                  () => disclosure[index].valueList.where((suggestion) {
+                    return suggestion['title']
+                        .toString()
+                        .toLowerCase()
+                        .contains(search.toLowerCase());
+                  }).toList(),
+                );
+              },
+            ),
+            const Divider(
+              color: Colors.black,
+            )
+          ],
         );
+      // return AutoCompleteTextField(
+      //   decoration: const InputDecoration(
+      //       hintText: "Enter a new value or select an existing value"),
+      //   clearOnSubmit: false,
+      //   textChanged: (item) {
+      //     setState(() {
+      //       selectedValuesFromUniqueId[id] = {
+      //         'value': item,
+      //       };
+      //       int index = formDatavalues.indexWhere(
+      //           (formData) => formData.custom_disclosure_id == id);
+      //       if (index != -1) {
+      //         // If FormData object with matching disclosureName is found, update its value
+      //         formDatavalues[index] = formDatavalues[index] = FormData(
+      //             custom_disclosure_id: id,
+      //             type: type,
+      //             value: selectedValuesFromUniqueId[id]);
+      //       } else {
+      //         // If FormData object with matching disclosureName is not found, add a new FormData object
+      //         formDatavalues.add(FormData(
+      //             custom_disclosure_id: id,
+      //             type: type,
+      //             value: selectedValuesFromUniqueId[id]));
+      //       }
+      //     });
+      //   },
+      //   itemSubmitted: (item) {
+      //     setState(() {
+      //       selectedValuesFromUniqueId[id] = {
+      //         'value': item,
+      //       };
+      //       int index = formDatavalues.indexWhere(
+      //           (formData) => formData.custom_disclosure_id == id);
+      //       if (index != -1) {
+      //         // If FormData object with matching disclosureName is found, update its value
+      //         formDatavalues[index] = formDatavalues[index] = FormData(
+      //             custom_disclosure_id: id,
+      //             type: type,
+      //             value: selectedValuesFromUniqueId[id]);
+      //       } else {
+      //         // If FormData object with matching disclosureName is not found, add a new FormData object
+      //         formDatavalues.add(FormData(
+      //             custom_disclosure_id: id,
+      //             type: type,
+      //             value: selectedValuesFromUniqueId[id]));
+      //       }
+      //     });
+      //   },
+      //   key: autoCompleteTextFieldKeys[id],
+      //   suggestions: disclosure[index].valueList,
+      //   itemBuilder: (context, suggestion) => Padding(
+      //       padding: const EdgeInsets.all(8.0),
+      //       child: ListTile(
+      //         title: Text(suggestion['title']),
+      //       )),
+      //   itemSorter: (a, b) => a['title']
+      //       .toString()
+      //       .toLowerCase()
+      //       .compareTo(b['title'].toString().toLowerCase()),
+      //   itemFilter: (suggestion, input) => suggestion['title']
+      //       .toString()
+      //       .toLowerCase()
+      //       .contains(input.toLowerCase()),
+      // );
+
       // final List valueList = List.from(disclosure[index].valueList);
 
       // return AutoCompleteTextField(
@@ -2218,7 +2495,7 @@ class _ExpandableListSubmissionState extends State<ExpandableListSubmission> {
         String uniqueId = '';
         if (disclosure[index].value != null) {
           uniqueId =
-              '${disclosure[index].value['id'] ?? ''} - ${disclosure[index].value['value'] ?? ''}';
+              '${disclosure[index].value['id'].toString() ?? ''} - ${disclosure[index].value['value'] ?? ''}';
         }
 
         return TextFormField(
@@ -2255,20 +2532,20 @@ class _ExpandableListSubmissionState extends State<ExpandableListSubmission> {
                         return Stack(
                           children: <Widget>[
                             Image.network(
-                              disclosure[index].value[index1],
+                              disclosure[index].value[index1] ?? '',
                               fit: BoxFit.fill,
                               // width: double.infinity,
                               // height: double.infinity,
-                              loadingBuilder:
-                                  (context, child, loadingProgress) => Center(
-                                      child: Container(
-                                          height: 50,
-                                          width: 50,
-                                          padding: const EdgeInsets.all(10),
-                                          child:
-                                              const CircularProgressIndicator(
-                                            color: Colors.black,
-                                          ))),
+                              // loadingBuilder:
+                              //     (context, child, loadingProgress) => Center(
+                              //         child: Container(
+                              //             height: 50,
+                              //             width: 50,
+                              //             padding: const EdgeInsets.all(10),
+                              //             child:
+                              //                 const CircularProgressIndicator(
+                              //               color: Colors.black,
+                              //             ))),
                             ),
                           ],
                         );
@@ -2310,18 +2587,31 @@ class _ExpandableListSubmissionState extends State<ExpandableListSubmission> {
           Container(
             alignment: Alignment.center,
             height: 70,
-            color:
-                _isExpanded ? Color.fromARGB(255, 236, 235, 235) : Colors.white,
+            color: _isExpanded
+                ? const Color.fromARGB(255, 236, 235, 235)
+                : Colors.white,
             child: ListTile(
               title: Text(
                 widget.title,
                 style: TextStyle(color: Colors.black, fontSize: 18),
               ),
-              onTap: () {
-                setState(() {
-                  _isExpanded = !_isExpanded;
-                  _isExpanded ? getFormDetails(widget.id, widget.itemId) : null;
-                });
+              onTap: () async {
+                var connectivityResult =
+                    await Connectivity().checkConnectivity();
+                if (connectivityResult == ConnectivityResult.none) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Please check internet connection'),
+                    ),
+                  );
+                } else {
+                  setState(() {
+                    _isExpanded = !_isExpanded;
+                    _isExpanded
+                        ? getFormDetails(widget.id, widget.itemId)
+                        : null;
+                  });
+                }
               },
               trailing: Container(
                 height: 30,
@@ -2346,83 +2636,561 @@ class _ExpandableListSubmissionState extends State<ExpandableListSubmission> {
                               height: 50,
                               width: 50,
                               padding: EdgeInsets.all(10),
-                              child: CircularProgressIndicator(
+                              child: const CircularProgressIndicator(
                                 color: Colors.black,
                               )))
-                      : ListView.builder(
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          itemCount: formDetailList[0]
-                              .customDisclosureSubmissions
-                              .length,
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemBuilder: (context, index) {
-                            List<CustomDisclosureSubmission> customDisclosure =
-                                formDetailList[0].customDisclosureSubmissions;
+                      : formDetailList.length == 0
+                          ? Container(
+                              padding: EdgeInsets.all(5),
+                              alignment: Alignment.center,
+                              child: const Text('No data'))
+                          : ListView.builder(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 20),
+                              itemCount: formDetailList[0]
+                                  .customDisclosureSubmissions
+                                  .length,
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              itemBuilder: (context, index) {
+                                List<CustomDisclosureSubmission>
+                                    customDisclosure = formDetailList[0]
+                                        .customDisclosureSubmissions;
 
-                            return Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                RichText(
-                                  text: TextSpan(
-                                    children: [
-                                      TextSpan(
-                                        text: customDisclosure[index]
-                                            .disclosureName,
-                                        style: const TextStyle(
-                                          fontSize: 14,
-                                          color:
-                                              Color.fromARGB(255, 167, 160, 64),
-                                        ),
-                                      ),
-                                      const TextSpan(
-                                        text: ' : ',
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          color:
-                                              Color.fromARGB(255, 167, 160, 64),
-                                        ),
-                                      ),
-                                      TextSpan(
-                                        text:
-                                            customDisclosure[index].disclosure,
-                                        style: const TextStyle(
-                                            fontSize: 14, color: Colors.black),
-                                      ),
-                                      customDisclosure[index].timer ==
-                                              'unlimited'
-                                          ? const TextSpan(
-                                              text: ' [Unlimited Submissions]',
-                                              style: TextStyle(
-                                                  fontSize: 12,
-                                                  color: Colors.black),
-                                            )
-                                          : customDisclosure[index].timer ==
-                                                  'computed'
+                                return Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    RichText(
+                                      text: TextSpan(
+                                        children: [
+                                          TextSpan(
+                                            text: customDisclosure[index]
+                                                .disclosureName,
+                                            style: const TextStyle(
+                                              fontSize: 14,
+                                              color: Color.fromARGB(
+                                                  255, 167, 160, 64),
+                                            ),
+                                          ),
+                                          const TextSpan(
+                                            text: ' : ',
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              color: Color.fromARGB(
+                                                  255, 167, 160, 64),
+                                            ),
+                                          ),
+                                          TextSpan(
+                                            text: customDisclosure[index]
+                                                .disclosure,
+                                            style: const TextStyle(
+                                                fontSize: 14,
+                                                color: Colors.black),
+                                          ),
+                                          customDisclosure[index].timer ==
+                                                  'unlimited'
                                               ? const TextSpan(
-                                                  text: ' [computed]',
+                                                  text:
+                                                      ' [Unlimited Submissions]',
                                                   style: TextStyle(
                                                       fontSize: 12,
                                                       color: Colors.black),
                                                 )
-                                              : const TextSpan(
-                                                  text: '[]',
-                                                  style: TextStyle(
-                                                      fontSize: 12,
-                                                      color: Colors.black),
-                                                )
-                                    ],
-                                  ),
-                                ),
-                                buildFormField(customDisclosure, index),
-                                const SizedBox(
-                                  height: 10,
-                                ),
-                              ],
-                            );
-                          },
-                        ))
+                                              : customDisclosure[index].timer ==
+                                                      'computed'
+                                                  ? const TextSpan(
+                                                      text: ' [computed]',
+                                                      style: TextStyle(
+                                                          fontSize: 12,
+                                                          color: Colors.black),
+                                                    )
+                                                  : const TextSpan(
+                                                      text: '[]',
+                                                      style: TextStyle(
+                                                          fontSize: 12,
+                                                          color: Colors.black),
+                                                    )
+                                        ],
+                                      ),
+                                    ),
+                                    buildFormField(customDisclosure, index),
+                                    const SizedBox(
+                                      height: 10,
+                                    ),
+                                  ],
+                                );
+                              },
+                            ))
               : Container()
+        ],
+      ),
+    );
+  }
+}
+
+class ExpandableListOfflineSubmission extends StatefulWidget {
+  final String title;
+
+  ExpandableListOfflineSubmission({
+    required this.title,
+  });
+
+  @override
+  _ExpandableListSubmissionState createState() =>
+      _ExpandableListSubmissionState();
+}
+
+class _ExpandableListOfflineSubmissionState
+    extends State<ExpandableListOfflineSubmission> {
+  bool _isExpanded = false;
+  bool isLoading = false;
+  List<ItemSubmission> formDetailList = [];
+
+  Widget buildFormField(List<CustomDisclosureSubmission> disclosure, index) {
+    final String type = disclosure[index].type ?? '';
+
+    switch (type) {
+      case 'string':
+        return TextFormField(
+          autofocus: false,
+          decoration: const InputDecoration(
+            hintText: 'Enter a text input',
+            labelStyle:
+                TextStyle(color: Colors.grey), // Grey text color for label
+            hintStyle:
+                TextStyle(color: Colors.grey), // Grey text color for hint
+            // Remove bottom line color on selection
+            focusedBorder: UnderlineInputBorder(borderSide: BorderSide.none),
+            // Style for disabled text color (grey)
+            disabledBorder: UnderlineInputBorder(
+              borderSide: BorderSide(color: Colors.grey),
+            ),
+          ),
+          initialValue: disclosure[index].value,
+          readOnly: true,
+          enabled: false,
+        );
+      case 'number':
+        return TextFormField(
+          decoration: const InputDecoration(
+              hintText: 'Enter a number',
+              labelStyle:
+                  TextStyle(color: Colors.grey), // Grey text color for label
+              hintStyle:
+                  TextStyle(color: Colors.grey), // Grey text color for hint
+              // Remove bottom line color on selection
+              focusedBorder: UnderlineInputBorder(borderSide: BorderSide.none),
+              // Style for disabled text color (grey)
+              disabledBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: Colors.grey),
+              ),
+              focusColor: Colors.grey),
+          keyboardType: TextInputType.number,
+          initialValue: "${disclosure[index].value ?? ''}",
+          autofocus: false,
+          enabled: false,
+          readOnly: true,
+        );
+
+      case 'tags':
+        List selectedTags = disclosure[index].value ?? [];
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Wrap(
+              spacing: 8,
+              children: selectedTags.map((tag) {
+                return Chip(
+                  backgroundColor: Colors.grey,
+                  label: Text(
+                    tag,
+                    style: TextStyle(color: Colors.white, fontSize: 12),
+                  ),
+                  onDeleted: () {},
+                );
+              }).toList(),
+            ),
+          ],
+        );
+      case 'radio':
+        final List<dynamic> valueList =
+            List<dynamic>.from(disclosure[index].valueList ?? []);
+        return Column(
+          children: valueList.map((value) {
+            return RadioListTile<dynamic>(
+              title: Text(value.toString()),
+              value: value,
+              activeColor: Colors.grey,
+              groupValue: disclosure[index].value,
+              onChanged: (dynamic newValue) {},
+            );
+          }).toList(),
+        );
+
+      case 'checkbox':
+        final List<dynamic> valueList =
+            List<dynamic>.from(disclosure[index].valueList ?? []);
+        return Column(
+          children: valueList.map((value) {
+            return CheckboxListTile(
+              title: Text(value.toString()),
+              activeColor: Colors.grey,
+              value: (disclosure[index].value ?? []).contains(value),
+              onChanged: (bool? newValue) {},
+            );
+          }).toList(),
+        );
+      case 'dropdown':
+        final List<dynamic> valueList =
+            List<dynamic>.from(disclosure[index].valueList ?? []);
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            DropdownButton<dynamic>(
+              value: disclosure[index].value,
+              dropdownColor:
+                  Colors.grey[200], // Set dropdown color to light grey
+              iconEnabledColor: Colors.grey,
+              hint: Text('select options'),
+              items: valueList.map((value) {
+                return DropdownMenuItem<dynamic>(
+                  value: value,
+                  child: Text(
+                    value,
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                );
+              }).toList(),
+              onChanged: (dynamic selectedValue) {},
+            ),
+          ],
+        );
+      case 'date':
+        return TextFormField(
+          initialValue: "${disclosure[index].value ?? ''}",
+          readOnly: true,
+          enabled: false,
+          decoration: const InputDecoration(
+            labelText: 'Select Dates',
+            suffixIcon: Icon(Icons.calendar_today),
+          ),
+        );
+      case 'location':
+        return TextFormField(
+          initialValue: "${disclosure[index].value ?? ''}",
+          readOnly: true,
+          enabled: false,
+          decoration: const InputDecoration(
+            hintText: 'Current Location',
+            suffixIcon: CircleAvatar(
+                backgroundColor: Colors.black,
+                child: const Icon(
+                  Icons.location_on,
+                  color: Colors.white,
+                )),
+          ),
+        );
+      case 'dropdown+text':
+        final List<dynamic> valueList =
+            List<dynamic>.from(disclosure[index].valueList ?? []);
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            DropdownButton<dynamic>(
+              value: disclosure[index].value != null
+                  ? disclosure[index].value['value_dropdown']
+                  : null,
+              hint: const Text('select options'),
+              dropdownColor:
+                  Colors.grey[200], // Set dropdown color to light grey
+              iconEnabledColor: Colors.grey,
+              items: valueList.map((value) {
+                return DropdownMenuItem<dynamic>(
+                  value: value,
+                  child: Text(
+                    value,
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                );
+              }).toList(),
+              onChanged: (dynamic selectedValue) {},
+              enableFeedback: false,
+            ),
+            TextFormField(
+              initialValue:
+                  "${disclosure[index].value != null ? disclosure[index].value['value_string'] ?? '' : ''}",
+              readOnly: true,
+              enabled: false,
+              decoration: const InputDecoration(hintText: 'Enter a text input'),
+            )
+          ],
+        );
+      // // case 'gallery':
+      // //   return Column(
+      // //     mainAxisAlignment: MainAxisAlignment.center,
+      // //     children: <Widget>[
+      // //       _image == null
+      // //           ? Text('No image selected.')
+      // //           : Container(
+      // //               height: 150,
+      // //               width: 200,
+      // //               child: Image.file(
+      // //                 _image!,
+      // //                 fit: BoxFit.fill,
+      // //               )),
+      // //       const SizedBox(height: 20),
+      // //       GestureDetector(
+      // //         onTap: getImage,
+      // //         child: const Row(
+      // //           mainAxisAlignment: MainAxisAlignment.center,
+      // //           children: [
+      // //             Icon(Icons.attach_file),
+      // //             SizedBox(width: 10),
+      // //             Text('Attach Image'),
+      // //           ],
+      // //         ),
+      // //       ),
+      // //       SizedBox(height: 20),
+      // //       Padding(
+      // //         padding: EdgeInsets.symmetric(horizontal: 20),
+      // //         child: TextField(
+      // //           controller: _imagePathController,
+      // //           readOnly: true,
+      // //           decoration: InputDecoration(
+      // //             hintText: 'Image Path',
+      // //             suffixIcon: IconButton(
+      // //               icon: Icon(Icons.clear),
+      // //               onPressed: () {
+      // //                 setState(() {
+      // //                   _image = null;
+      // //                   _imagePathController.clear();
+      // //                 });
+      // //               },
+      // //             ),
+      // //           ),
+      // //         ),
+      // //       ),
+      // //     ],
+      // //   );
+      case 'unique_id':
+        // final List valueList = List.from(disclosure[index].valueList);
+        String uniqueId = '';
+        if (disclosure[index].value != null) {
+          uniqueId =
+              '${disclosure[index].value['id'].toString() ?? ''} - ${disclosure[index].value['value'] ?? ''}';
+        }
+
+        return TextFormField(
+          initialValue: uniqueId,
+          readOnly: true,
+          enabled: false,
+          decoration: const InputDecoration(
+              hintText: "Enter a new value or select an existing value"),
+        );
+      case 'computed':
+        return TextFormField(
+          initialValue: "${disclosure[index].value ?? ''}",
+          readOnly: true,
+          enabled: false,
+        );
+      case 'gallery':
+        return Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: <Widget>[
+              disclosure[index].value == null
+                  ? const Text('No image found.')
+                  : GridView.builder(
+                      itemCount: disclosure[index]
+                          .value
+                          .length, //formDatavalues[index].value?.length,
+                      shrinkWrap: true,
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 3,
+                        crossAxisSpacing: 4.0,
+                        mainAxisSpacing: 4.0,
+                      ),
+                      itemBuilder: (context, index1) {
+                        return Stack(
+                          children: <Widget>[
+                            Image.network(
+                              disclosure[index].value[index1] ?? '',
+                              fit: BoxFit.fill,
+                              // width: double.infinity,
+                              // height: double.infinity,
+                              // loadingBuilder:
+                              //     (context, child, loadingProgress) => Center(
+                              //         child: Container(
+                              //             height: 50,
+                              //             width: 50,
+                              //             padding: const EdgeInsets.all(10),
+                              //             child:
+                              //                 const CircularProgressIndicator(
+                              //               color: Colors.black,
+                              //             ))),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+
+              // Container(
+              //     height: 120,
+              //     width: 150,
+              //     child: Image.network(
+              //       disclosure[index].value[0].toString()!,
+              //       fit: BoxFit.fill,
+              //     )),
+            ]);
+
+      default:
+        return Container(
+          height: 20,
+        );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(5),
+          color: Colors.white,
+          boxShadow: const [
+            BoxShadow(
+                blurRadius: 2,
+                color: Color.fromARGB(255, 168, 160, 160),
+                spreadRadius: 1)
+          ]),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            alignment: Alignment.center,
+            height: 70,
+            color: _isExpanded
+                ? const Color.fromARGB(255, 236, 235, 235)
+                : Colors.white,
+            child: ListTile(
+              title: Text(
+                widget.title,
+                style: TextStyle(color: Colors.black, fontSize: 18),
+              ),
+              onTap: () async {
+                setState(() {
+                  _isExpanded = !_isExpanded;
+                });
+              },
+              trailing: Container(
+                height: 30,
+                width: 30,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(20),
+                    color: const Color.fromARGB(255, 216, 209, 188)),
+                child: Icon(
+                  _isExpanded
+                      ? Icons.keyboard_arrow_up
+                      : Icons.keyboard_arrow_down,
+                ),
+              ),
+            ),
+          ),
+          // _isExpanded == true
+          //     ? Container(
+          //         child: isLoading
+          //             ? Center(
+          //                 child: Container(
+          //                     height: 50,
+          //                     width: 50,
+          //                     padding: EdgeInsets.all(10),
+          //                     child: const CircularProgressIndicator(
+          //                       color: Colors.black,
+          //                     )))
+          //             : formDetailList.length == 0
+          //                 ? Container(
+          //                     padding: EdgeInsets.all(5),
+          //                     alignment: Alignment.center,
+          //                     child: const Text('No data'))
+          //                 : ListView.builder(
+          //                     padding:
+          //                         const EdgeInsets.symmetric(horizontal: 20),
+          //                     itemCount: formDetailList[0]
+          //                         .customDisclosureSubmissions
+          //                         .length,
+          //                     shrinkWrap: true,
+          //                     physics: const NeverScrollableScrollPhysics(),
+          //                     itemBuilder: (context, index) {
+          //                       List<CustomDisclosureSubmission>
+          //                           customDisclosure = formDetailList[0]
+          //                               .customDisclosureSubmissions;
+
+          //                       return Column(
+          //                         crossAxisAlignment: CrossAxisAlignment.start,
+          //                         children: [
+          //                           RichText(
+          //                             text: TextSpan(
+          //                               children: [
+          //                                 TextSpan(
+          //                                   text: customDisclosure[index]
+          //                                       .disclosureName,
+          //                                   style: const TextStyle(
+          //                                     fontSize: 14,
+          //                                     color: Color.fromARGB(
+          //                                         255, 167, 160, 64),
+          //                                   ),
+          //                                 ),
+          //                                 const TextSpan(
+          //                                   text: ' : ',
+          //                                   style: TextStyle(
+          //                                     fontSize: 14,
+          //                                     color: Color.fromARGB(
+          //                                         255, 167, 160, 64),
+          //                                   ),
+          //                                 ),
+          //                                 TextSpan(
+          //                                   text: customDisclosure[index]
+          //                                       .disclosure,
+          //                                   style: const TextStyle(
+          //                                       fontSize: 14,
+          //                                       color: Colors.black),
+          //                                 ),
+          //                                 customDisclosure[index].timer ==
+          //                                         'unlimited'
+          //                                     ? const TextSpan(
+          //                                         text:
+          //                                             ' [Unlimited Submissions]',
+          //                                         style: TextStyle(
+          //                                             fontSize: 12,
+          //                                             color: Colors.black),
+          //                                       )
+          //                                     : customDisclosure[index].timer ==
+          //                                             'computed'
+          //                                         ? const TextSpan(
+          //                                             text: ' [computed]',
+          //                                             style: TextStyle(
+          //                                                 fontSize: 12,
+          //                                                 color: Colors.black),
+          //                                           )
+          //                                         : const TextSpan(
+          //                                             text: '[]',
+          //                                             style: TextStyle(
+          //                                                 fontSize: 12,
+          //                                                 color: Colors.black),
+          //                                           )
+          //                               ],
+          //                             ),
+          //                           ),
+          //                           buildFormField(customDisclosure, index),
+          //                           const SizedBox(
+          //                             height: 10,
+          //                           ),
+          //                         ],
+          //                       );
+          //                     },
+          //                   ))
+          //     : Container()
         ],
       ),
     );
@@ -2451,7 +3219,13 @@ class FormData {
   Map<String, dynamic> toJson() {
     String formattedDate = '';
     if (type == 'date') {
-      formattedDate = '${DateFormat('yyyy-MM-ddTHH:mm:ss.sss').format(value)}Z';
+      //formattedDate = '${DateFormat('yyyy-MM-ddTHH:mm:ss.sss').format(value)}Z';
+      DateTime formated_date = DateTime.parse(value);
+      formattedDate =
+          DateFormat('yyyy-MM-ddTHH:mm:ss.SSS').format(formated_date);
+
+      // Add 'Z' at the end to indicate UTC time
+      formattedDate += 'Z';
     }
     return {
       'custom_disclosure_id': custom_disclosure_id,
