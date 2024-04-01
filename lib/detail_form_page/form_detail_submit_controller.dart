@@ -197,4 +197,37 @@ class PostFormData extends GetxController {
     }
     return isSuccess;
   }
+
+  Future<bool> submitOfflineFormData(
+      List<forData.FormData> data, String itemId, DateTime date) async {
+    bool isSuccess = false;
+    String formattedDate =
+        '${DateFormat('yyyy-MM-ddTHH:mm:ss.sss').format(date)}Z';
+    List<Map<String, dynamic>> postData = [];
+    List<String> imagePaths = [];
+    for (var element in data) {
+      postData.add(element.toJson());
+      if (element.type == 'gallery') {
+        imagePaths.addAll(element.value);
+      }
+    }
+    Map<String, dynamic> dataToStore = {
+      'postData': postData,
+      'itemId': itemId,
+      'date': formattedDate,
+    };
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      List<String> dataList = [];
+      dataList = prefs.getStringList('offlineData') ?? [];
+      dataList.add(jsonEncode(dataToStore));
+      isSuccess = await prefs.setStringList('offlineData', dataList);
+      print('prefs=${prefs.getStringList('offlineData')}');
+    } catch (e) {
+      print('e=$e');
+      // throw Exception('Failed to load events');
+    }
+    return isSuccess;
+  }
 }

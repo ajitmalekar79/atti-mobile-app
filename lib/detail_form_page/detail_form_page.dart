@@ -2,10 +2,12 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:attheblocks/common/connectivity_controller.dart';
 import 'package:attheblocks/detail_form_page/detail_submission_controller.dart';
-import 'package:autocomplete_textfield/autocomplete_textfield.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_typeahead/flutter_typeahead.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
@@ -26,8 +28,9 @@ class Detail_form_page extends StatefulWidget {
 }
 
 class _Detail_form_pageState extends State<Detail_form_page> {
-  GlobalKey<AutoCompleteTextFieldState> autokey =
-      GlobalKey<AutoCompleteTextFieldState>();
+  final ConnectivityController connectivityController =
+      Get.find<ConnectivityController>();
+
   double _menuHeight = 0.0;
   bool _menuOpened = false;
   String firstLetter = '';
@@ -46,7 +49,7 @@ class _Detail_form_pageState extends State<Detail_form_page> {
   Map<String, dynamic> selectedValuesFromDropDown = {};
   Map<String, dynamic> selectedValuesFromDateTime = {};
   Map<String, dynamic> selectedValuesFromLocation = {};
-  Map<String, dynamic> autoCompleteTextFieldKeys = {};
+  Map<String, dynamic> autoCompleteTextFieldController = {};
   Map<String, dynamic> selectedValuesFromDropDownText = {};
   Map<String, dynamic> selectedValuesFromUniqueId = {};
   Map<String, dynamic> selectedValuesFromImage = {};
@@ -256,8 +259,7 @@ class _Detail_form_pageState extends State<Detail_form_page> {
     backGroundColor = generateRandomColor();
     formDetailList[0].customDisclosures.forEach((element) {
       if (element.type == 'unique_id') {
-        autoCompleteTextFieldKeys[element.id] =
-            GlobalKey<AutoCompleteTextFieldState>();
+        autoCompleteTextFieldController[element.id] = TextEditingController();
       }
     });
 
@@ -346,7 +348,7 @@ class _Detail_form_pageState extends State<Detail_form_page> {
       _locationIsLoading = false;
       _image = null;
       _imagePathController.clear();
-      autoCompleteTextFieldKeys.clear();
+      autoCompleteTextFieldController.clear();
       imagePaths = [];
 
       formDatavalues = [];
@@ -356,7 +358,27 @@ class _Detail_form_pageState extends State<Detail_form_page> {
       _timeController.text = formattedTime;
     });
 
-    getFormDetails();
+    if (connectivityController.connectionType != 0) {
+      getFormDetails();
+    } else {
+      backGroundColor = generateRandomColor();
+      formDetailList[0].customDisclosures.forEach((element) {
+        if (element.type == 'unique_id') {
+          autoCompleteTextFieldController[element.id] = TextEditingController();
+        }
+      });
+
+      Get.snackbar('Form Submitted Offline',
+          "You don't have internet connection. Whenever you gone online data will sync to the server.",
+          backgroundColor: Colors.greenAccent,
+          snackPosition: SnackPosition.BOTTOM);
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+          submitDataLoading = false;
+        });
+      }
+    }
   }
 
   @override
@@ -386,7 +408,7 @@ class _Detail_form_pageState extends State<Detail_form_page> {
       body: Stack(
         children: [
           isLoading || formDetailList.isEmpty
-              ? Container(
+              ? SizedBox(
                   width: screenWidth,
                   child: const Column(
                     crossAxisAlignment: CrossAxisAlignment.center,
@@ -691,11 +713,21 @@ class _Detail_form_pageState extends State<Detail_form_page> {
                                                 ),
                                               );
                                             } else {
-                                              await _postFormData
-                                                  .submitFormData(
-                                                      formDatavalues,
-                                                      widget.itemId,
-                                                      _selectedDate);
+                                              if (connectivityController
+                                                      .connectionType ==
+                                                  0) {
+                                                await _postFormData
+                                                    .submitOfflineFormData(
+                                                        formDatavalues,
+                                                        widget.itemId,
+                                                        _selectedDate);
+                                              } else {
+                                                await _postFormData
+                                                    .submitFormData(
+                                                        formDatavalues,
+                                                        widget.itemId,
+                                                        _selectedDate);
+                                              }
                                               clearData();
                                             }
                                           },
@@ -1542,15 +1574,27 @@ class _Detail_form_pageState extends State<Detail_form_page> {
           ],
         );
       case 'unique_id':
-        return AutoCompleteTextField(
-          decoration: const InputDecoration(
-              hintText: "Enter a new value or select an existing value"),
-          clearOnSubmit: false,
-          textChanged: (item) {
+        return TypeAheadField(
+          controller: autoCompleteTextFieldController[id],
+          builder: (context, controller, focusNode) => CupertinoTextField(
+            controller: controller,
+            focusNode: focusNode,
+            autofocus: true,
+            padding: const EdgeInsets.all(12),
+            placeholder: 'Enter a new value or select an existing value',
+          ),
+          itemBuilder: (context, suggestion) {
+            return Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: ListTile(
+                  title: Text(suggestion['title']),
+                ));
+          },
+          onSelected: (item) {
             setState(() {
-              selectedValuesFromUniqueId[id] = {
-                'value': item,
-              };
+              autoCompleteTextFieldController[id] =
+                  TextEditingController(text: item['title']);
+              selectedValuesFromUniqueId[id] = item;
               int index = formDatavalues.indexWhere(
                   (formData) => formData.custom_disclosure_id == id);
               if (index != -1) {
@@ -1568,106 +1612,19 @@ class _Detail_form_pageState extends State<Detail_form_page> {
               }
             });
           },
-          itemSubmitted: (item) {
-            setState(() {
-              selectedValuesFromUniqueId[id] = {
-                'value': item,
-              };
-              int index = formDatavalues.indexWhere(
-                  (formData) => formData.custom_disclosure_id == id);
-              if (index != -1) {
-                // If FormData object with matching disclosureName is found, update its value
-                formDatavalues[index] = formDatavalues[index] = FormData(
-                    custom_disclosure_id: id,
-                    type: type,
-                    value: selectedValuesFromUniqueId[id]);
-              } else {
-                // If FormData object with matching disclosureName is not found, add a new FormData object
-                formDatavalues.add(FormData(
-                    custom_disclosure_id: id,
-                    type: type,
-                    value: selectedValuesFromUniqueId[id]));
-              }
-            });
+          suggestionsCallback: (search) {
+            return Future<List>.delayed(
+              const Duration(milliseconds: 300),
+              () => disclosure[index].valueList.where((suggestion) {
+                return suggestion['title']
+                    .toString()
+                    .toLowerCase()
+                    .contains(search.toLowerCase());
+              }).toList(),
+            );
           },
-          key: autoCompleteTextFieldKeys[id],
-          suggestions: disclosure[index].valueList,
-          itemBuilder: (context, suggestion) => Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: ListTile(
-                title: Text(suggestion['title']),
-              )),
-          itemSorter: (a, b) => a['title']
-              .toString()
-              .toLowerCase()
-              .compareTo(b['title'].toString().toLowerCase()),
-          itemFilter: (suggestion, input) => suggestion['title']
-              .toString()
-              .toLowerCase()
-              .contains(input.toLowerCase()),
         );
-      // final List valueList = List.from(disclosure[index].valueList);
 
-      // return AutoCompleteTextField(
-      //   decoration: const InputDecoration(
-      //       hintText: "Enter a new value or select an existing value"),
-      //   textChanged: (item) {
-      //     setState(() {
-      //       selectedValuesFromUniqueId[id] = {
-      //         'value': item,
-      //       };
-      //       int index = formDatavalues.indexWhere(
-      //           (formData) => formData.custom_disclosure_id == id);
-      //       if (index != -1) {
-      //         // If FormData object with matching disclosureName is found, update its value
-      //         formDatavalues[index] = formDatavalues[index] = FormData(
-      //             custom_disclosure_id: id,
-      //             type: type,
-      //             value: selectedValuesFromUniqueId[id]);
-      //       } else {
-      //         // If FormData object with matching disclosureName is not found, add a new FormData object
-      //         formDatavalues.add(FormData(
-      //             custom_disclosure_id: id,
-      //             type: type,
-      //             value: selectedValuesFromUniqueId[id]));
-      //       }
-      //     });
-      //   },
-      //   itemSubmitted: (item) {
-      //     setState(() {
-      //       selectedValuesFromUniqueId[id] = {
-      //         'value': item,
-      //       };
-      //       int index = formDatavalues.indexWhere(
-      //           (formData) => formData.custom_disclosure_id == id);
-      //       if (index != -1) {
-      //         // If FormData object with matching disclosureName is found, update its value
-      //         formDatavalues[index] = formDatavalues[index] = FormData(
-      //             custom_disclosure_id: id,
-      //             type: type,
-      //             value: selectedValuesFromUniqueId[id]);
-      //       } else {
-      //         // If FormData object with matching disclosureName is not found, add a new FormData object
-      //         formDatavalues.add(FormData(
-      //             custom_disclosure_id: id,
-      //             type: type,
-      //             value: selectedValuesFromUniqueId[id]));
-      //       }
-      //     });
-      //   },
-      //   key: autokey,
-      //   suggestions: valueList,
-      //   itemBuilder: (context, suggestion) => Padding(
-      //       padding: const EdgeInsets.all(8.0),
-      //       child: ListTile(
-      //           title: Text(suggestion), trailing: Text(suggestion))),
-      //   itemSorter: (a, b) =>
-      //       a.toString().toLowerCase().compareTo(b.toString().toLowerCase()),
-      //   itemFilter: (suggestion, input) => suggestion
-      //       .toString()
-      //       .toLowerCase()
-      //       .startsWith(input.toLowerCase()),
-      // );
       case 'computed':
         List<ComputedDisclosureModel> formula =
             disclosure[index].computedDisclosureFormula ?? [];
