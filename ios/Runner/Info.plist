@@ -57,5 +57,11 @@
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Allow access to the microphone for recording video with sound</string>
 
+	<key>NSCameraUsageDescription</key>
+    <string>Your app needs access to the camera to take photos.</string>
+    
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>Your app needs access to the photo library to select photos.</string>
+
 </dict>
 </plist>
