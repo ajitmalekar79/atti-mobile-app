@@ -953,6 +953,21 @@ class _Detail_form_pageState extends State<Detail_form_page> {
                         },
                       ),
                       ListView.builder(
+                          itemCount: submissions.length,
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemBuilder: (context, index) {
+                            final data = submissions[index];
+
+                            String formattedDate =
+                                DateFormat('MMMM d, yyyy - HH:mm')
+                                    .format(data.date);
+                            return ExpandableListSubmission(
+                                title: formattedDate,
+                                itemId: widget.itemId,
+                                id: formDetailList[0].submissions[index].id);
+                          }),
+                      ListView.builder(
                           itemCount: formDetailList[0].submissions.length,
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),

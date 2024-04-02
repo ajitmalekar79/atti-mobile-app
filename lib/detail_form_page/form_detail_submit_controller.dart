@@ -21,7 +21,10 @@ class PostFormData extends GetxController {
     for (var element in data) {
       postData.add(element.toJson());
       if (element.type == 'gallery') {
-        imagePaths.addAll(element.value);
+        element.value.forEach((element) {
+          imagePaths.add(element);
+        });
+        // imagePaths.addAll(element.value);
       }
     }
 
